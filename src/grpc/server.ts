@@ -1,10 +1,14 @@
 import Net from '../index';
+import {Message} from '../../types/interfaces';
 const grpc = require('@grpc/grpc-js');
 const services = require('./proto/model_grpc_pb');
 
 const server = new grpc.Server();
 
-const Recieve = (call, callback) => {
+const Recieve = (
+    call : {request: Message},
+    callback: (status: unknown, response: {isSuccessful: boolean}) => void,
+) => {
     console.log(new Date(), call.request);
     net.sendMessageFromClient(call.request);
     callback(null, {isSuccessful: true});
@@ -15,7 +19,7 @@ server.addService(services.BotChatService, {Recieve: Recieve});
 server.bindAsync(
     '127.0.0.1:50051',
     grpc.ServerCredentials.createInsecure(),
-    (error, port) => {
+    (error: unknown, port:number) => {
         console.log(`Server running at ${port}`);
         console.log('error: ', error);
         server.start();

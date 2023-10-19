@@ -1,8 +1,12 @@
 import client from './grpc/client';
+import {Message} from '../types/interfaces';
+import {Context} from 'telegraf';
 const {Telegraf} = require('telegraf');
 
+type tempContext = {message: {text: string}, update: {message: {chat: {id: number}}}, reply: (std: string) => void};
+
 class Bots {
-    bots;
+    bots: Array<typeof Telegraf>;
     context;
     sendMessageToClient;
     senderChat;
@@ -24,7 +28,7 @@ class Bots {
 
     initBots(chatIDs: Array<number>) {
         this.bots.forEach((bot, index: number) => {
-            bot.start((ctx) => {
+            bot.start((ctx: tempContext) => {
                 // this.ctx.push()
                 ctx.reply('Run /addClass command');
                 this.context.set(chatIDs[index], ctx);
@@ -33,12 +37,15 @@ class Bots {
                 // console.log(ctx.update); // update info
                 // console.log(ctx.state); // empty -_-
             });
-            bot.help((ctx) => ctx.reply('Run /addClass command to send me a token from your teacher!'));
+            bot.help((ctx: Context) =>
+                ctx.reply('Run /addClass command to send me a token from your teacher!'));
             bot.command('addClass', Telegraf.reply('token'));
-            bot.hears('hi', (ctx) => this.sendMessage(ctx, `date is  ${new Date()}`));
+            bot.hears('hi', (ctx: Context) => this.sendMessage(ctx, `date is  ${new Date()}`));
 
-            bot.on(['text'], (ctx) => {
-                this.sendMessage(ctx, ctx.message.text);
+            bot.on(['text'], (
+                ctx: tempContext,
+            ) => {
+                this.sendMessage(ctx as Context, ctx.message.text);
                 this.sendMessageToClient(
                     {
                         chatID: this.senderChat.get(ctx.update.message.chat.id), text: ctx.message.text,
@@ -58,17 +65,11 @@ class Bots {
         });
     }
 
-    sendMessage(ctx, text: string) {
+    sendMessage(ctx: Context, text: string) {
         console.log(ctx);
         ctx.reply(text);
         // Telegraf.reply();
     }
-}
-
-interface Message {
-    chatID: number,
-    text: string,
-    time?: number
 }
 
 export default class Net {
@@ -81,7 +82,7 @@ export default class Net {
 
     sendMessageFromClient(message: Message) {
         if (this.bots.context.has(message.chatID)) {
-            this.bots.sendMessage(this.bots.context.get(message.chatID), message.text);
+            this.bots.sendMessage(this.bots.context.get(message.chatID) as Context, message.text);
         } else {
             console.error('sendMessageFromClient error, no such chat id');
         }
@@ -90,7 +91,7 @@ export default class Net {
     sendMessageToClient(message: Message) {
         if (message.chatID !== undefined) {
             console.log('sendMessageToClient, text:', message.text);
-            client.Recieve(message, function(creationFailed, productCreated) {
+            client.Recieve(message, function(creationFailed: string, productCreated: string) {
                 console.log('On Success:', productCreated);
                 console.log('On Failure:', creationFailed);
             });
