@@ -1,9 +1,5 @@
 syntax = "proto3";
 
-// export PATH="$PATH:$(go env GOPATH)/bin"
-// go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-// protoc --go_out=. --go-grpc_out=. --go-grpc_opt=paths=source_relative --go_opt=paths=source_relative microservices/chatServer/gen_files/chat.proto
-
 package chat;
 option go_package = "./chat";
 

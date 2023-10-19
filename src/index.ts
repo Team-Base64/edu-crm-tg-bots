@@ -59,7 +59,9 @@ class Bots {
     }
 
     sendMessage(ctx, text: string) {
+        console.log(ctx);
         ctx.reply(text);
+        // Telegraf.reply();
     }
 }
 

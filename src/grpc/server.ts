@@ -1,18 +1,6 @@
 import Net from '../index';
 const grpc = require('@grpc/grpc-js');
-const PROTO_PATH = 'proto/model.proto';
-const protoLoader = require('@grpc/proto-loader');
-
-const options = {
-    keepCase: true,
-    longs: String,
-    enums: String,
-    defaults: true,
-    oneofs: true,
-};
-
-const packageDefinition = protoLoader.loadSync(PROTO_PATH, options);
-const MessageProto = grpc.loadPackageDefinition(packageDefinition).chat;
+const services = require('./proto/model_grpc_pb');
 
 const server = new grpc.Server();
 
@@ -22,7 +10,7 @@ const Recieve = (call, callback) => {
     callback(null, {isSuccessful: true});
 };
 
-server.addService(MessageProto.BotChat.service, {Recieve: Recieve});
+server.addService(services.BotChatService, {Recieve: Recieve});
 
 server.bindAsync(
     '127.0.0.1:50051',
