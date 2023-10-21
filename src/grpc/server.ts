@@ -1,12 +1,12 @@
 import Net from '../index';
-import {Message} from '../../types/interfaces';
+import {ProtoMessage} from '../../types/interfaces';
 const grpc = require('@grpc/grpc-js');
 const services = require('./proto/model_grpc_pb');
 
 const server = new grpc.Server();
 
 const Recieve = (
-    call : {request: Message},
+    call : {request: ProtoMessage},
     callback: (status: unknown, response: {isSuccessful: boolean}) => void,
 ) => {
     console.log(new Date(), call.request);

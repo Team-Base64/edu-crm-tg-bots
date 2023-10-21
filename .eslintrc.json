@@ -31,6 +31,8 @@
     "tsdoc/syntax": "warn",
     "valid-jsdoc": "off",
     "react/no-children-prop": "off",
-    "max-len": ["error", { "code": 105 }]
+    "max-len": ["error", { "code": 105 }],
+    "func-call-spacing": "off",
+    "@typescript-eslint/no-var-requires": "warn"
   }
 }

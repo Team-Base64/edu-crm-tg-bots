@@ -1,4 +1,4 @@
-export interface Message {
+export interface ProtoMessage {
     chatID: number,
     text: string,
     time?: number
