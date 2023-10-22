@@ -1,18 +1,9 @@
-import {ProtoMessage} from '../types/interfaces';
+import {ProtoMessage, updateContext} from '../../types/interfaces';
 import {Context} from 'telegraf';
-import {Message, Update} from '@telegraf/types';
-import NonChannel = Update.NonChannel;
-import New = Update.New;
-import TextMessage = Message.TextMessage;
-import {logger} from './utils/logger';
+import {logger} from '../utils/logger';
 const {Telegraf} = require('telegraf');
 
-
-interface updateContext extends Context {
-    message: (New & NonChannel & TextMessage & Message) | undefined,
-}
-
-type SendMessageTo = {botToken: string, telegramChatID: number};
+export type SendMessageTo = {botToken: string, telegramChatID: number};
 
 export default class Bots {
     bots;
@@ -48,13 +39,14 @@ export default class Bots {
 
             bot.command('addClass', Telegraf.reply('token'));
 
-            bot.on(['text'], this.#onTextMessage.bind(this));
+            bot.on('message', this.#onTextMessage.bind(this));
+            // bot.on(['text'], this.#onTextMessage.bind(this));
         });
     }
 
     launchBots() {
         Array.from(this.bots.values()).forEach((bot) => {
-            bot.launch().catch((reason: string) => logger.error('bot.launch() error: ' + reason));
+            bot.launch().catch((reason: string) => logger.fatal('bot.launch() error: ' + reason));
             process.once('SIGINT', () => bot.stop('SIGINT'));
             process.once('SIGTERM', () => bot.stop('SIGTERM'));
         });
@@ -64,13 +56,9 @@ export default class Bots {
         this.bots.get(botToken).telegram.sendMessage(telegramChatID, text);
     }
 
-    addChatID(chatID: number) {
-
-    }
-
     #onStartCommand(chatID: number, ctx: Context) {
         ctx.reply('Run /addClass command').
-            catch((reason: string) => logger.error('bot.start() error: ' + reason));
+            catch((reason: string) => logger.fatal('bot.start() error: ' + reason));
 
         if (ctx.message && ctx.message.from.id) {
             this.context.set(
@@ -82,13 +70,13 @@ export default class Bots {
         } else {
             logger.error('bot.start: ', 'no ctx.message && ctx.message.from.id');
             ctx.reply('error occurred. Try later.').
-                catch((reason: string) => logger.error('bot.start() error: ' + reason));
+                catch((reason: string) => logger.fatal('bot.start() error: ' + reason));
         }
     }
 
     #onHelpCommand(ctx: updateContext) {
         ctx.reply('Run /addClass command to send me a token from your teacher!').
-            catch((reason: string) => logger.error('bot.help error: ' + reason));
+            catch((reason: string) => logger.fatal('bot.help error: ' + reason));
     }
 
     #onTextMessage(ctx: updateContext) {
@@ -99,7 +87,7 @@ export default class Bots {
             ${this.senderChat.get(ctx.message.chat.id)}`);
 
             ctx.reply(ctx.message.text).
-                catch((reason: string) => logger.error('bot.on([\'text\'] error: ' + reason));
+                catch((reason: string) => logger.fatal('bot.on([\'text\'] error: ' + reason));
 
             if (this.senderChat.has(ctx.message.chat.id)) {
                 this.sendMessageToClient(

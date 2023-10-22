@@ -1,7 +1,7 @@
 import client from './grpc/client';
 require('dotenv').config();
 import {ProtoMessage} from '../types/interfaces';
-import Bots from './bot';
+import Bots from './slaveBot/slaveBot';
 import {logger} from './utils/logger';
 
 export default class Net {
