@@ -28,7 +28,7 @@ class MasterBot {
         // this.bot.command('', (ctx) => ctx.reply('Hey there'));
     }
 
-    launchBots() {
+    launchBot() {
         this.bot.launch().catch((reason: string) => logger.fatal('bot.launch() error: ' + reason));
         process.once('SIGINT', () => this.bot.stop('SIGINT'));
         process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
@@ -76,4 +76,4 @@ class MasterBot {
 const masterBotToken = '6881067197:AAHLj70waoWo5PnS009QYyy8U3ka9SuZhWg';
 
 const masterBot = new MasterBot(masterBotToken);
-masterBot.launchBots();
+masterBot.launchBot();
