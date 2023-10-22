@@ -17,7 +17,7 @@ const Recieve = (
 server.addService(services.BotChatService, {Recieve: Recieve});
 
 server.bindAsync(
-    '127.0.0.1:50051',
+    '127.0.0.1:5001',
     grpc.ServerCredentials.createInsecure(),
     (error: unknown, port:number) => {
         console.log(`Server running at ${port}`);
