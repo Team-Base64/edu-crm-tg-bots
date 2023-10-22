@@ -1,47 +1,41 @@
 import {Context} from 'telegraf';
 import {logger} from '../utils/logger';
-import {SendMessageTo} from '../slaveBot/slaveBot';
 import {updateContext} from '../../types/interfaces';
+
 const {Telegraf} = require('telegraf');
 
 class MasterBot {
-    bots;
+    bot;
+    slaveBots;
 
-    constructor(tokens: Array<string>) {
-        this.bots = new Map<string, typeof Telegraf>;
+    constructor(token: string) {
+        this.bot = new Telegraf(token);
 
-        this.createBots(tokens);
         this.initBots();
+
+        this.slaveBots = ['https://t.me/GG222bot', 'https://t.me/Aintttbot'];
 
         logger.info(`starting Bots with ${logger.level} level`);
     }
 
-    createBots(tokens: Array<string>) {
-        tokens.forEach((token) => {
-            this.bots.set(token, new Telegraf(token));
-        });
-    }
     initBots() {
-        Array.from(this.bots.values()).forEach((bot) => {
-            bot.start(this.#onStartCommand.bind(this));
+        this.bot.start(this.#onStartCommand.bind(this));
 
-            bot.help(this.#onHelpCommand);
+        this.bot.help(this.#onHelpCommand);
 
-            bot.on('message', this.#onTextMessage.bind(this));
-            // bot.on(['text'], this.#onTextMessage.bind(this));
-        });
+        this.bot.on('message', this.#onTextMessage.bind(this));
+
+        // this.bot.command('', (ctx) => ctx.reply('Hey there'));
     }
 
     launchBots() {
-        Array.from(this.bots.values()).forEach((bot) => {
-            bot.launch().catch((reason: string) => logger.fatal('bot.launch() error: ' + reason));
-            process.once('SIGINT', () => bot.stop('SIGINT'));
-            process.once('SIGTERM', () => bot.stop('SIGTERM'));
-        });
+        this.bot.launch().catch((reason: string) => logger.fatal('bot.launch() error: ' + reason));
+        process.once('SIGINT', () => this.bot.stop('SIGINT'));
+        process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
     }
 
-    sendMessage({botToken, telegramChatID}: SendMessageTo, text: string) {
-        this.bots.get(botToken).telegram.sendMessage(telegramChatID, text);
+    sendMessage(ctx: Context, text: string) {
+        ctx.reply(text).catch((reason: string) => logger.fatal('bot.launch() error: ' + reason));
     }
 
     // addChatID(chatID: number) {
@@ -49,39 +43,37 @@ class MasterBot {
     // }
 
     #onStartCommand(ctx: Context) {
-        ctx.reply('Отправьте мне токен, чтобы подключиться к классу').
+        ctx.reply('Отправьте мне код, чтобы подключиться к классу').
             catch((reason: string) => logger.fatal('bot.start() error: ' + reason));
-
-        // if (ctx.message && ctx.message.from.id) {
-        //     this.context.set(
-        //         chatID,
-        //         {botToken: ctx.telegram.token, telegramChatID: ctx.message.from.id},
-        //     );
-        //
-        //     this.senderChat.set(ctx.message.chat.id, chatID);
-        // } else {
-        //     logger.error('bot.start: ', 'no ctx.message && ctx.message.from.id');
-        //     ctx.reply('error occurred. Try later.').
-        //         catch((reason: string) => logger.error('bot.start() error: ' + reason));
-        // }
     }
 
     #onHelpCommand(ctx: updateContext) {
-        ctx.reply('Нажмите на команду */start*', {parse_mode: 'Markdown'}).
+        ctx.reply('Отправьте сообщение с вашим кодом, '+
+            'чтобы получить бота для общения с преподавателем').
             catch((reason: string) => logger.fatal('bot.help error: ' + reason));
     }
 
     #onTextMessage(ctx: updateContext) {
-        if (ctx.message) {
-            ctx.reply(ctx.message.text).
+        if (ctx.message && Number.isInteger(Number(ctx.message.text))) {
+            ctx.reply('Ваш бот для общения с преподавателем: ' +
+                `*${this.slaveBots[ctx.message.text % this.slaveBots.length]}*. ` +
+                'Нажмите */start*, когда перейдете в этот бот',
+            {parse_mode: 'Markdown'},
+            ).
                 catch((reason: string) => logger.fatal('bot.on([\'text\'] error: ' + reason));
         } else {
-            logger.warn('bot.on([\'text\']: no message');
+            logger.warn('bot.on([\'text\']: no message / NaN');
+            ctx.reply(
+                'Токен может содержать только цифры. '+
+                'Для отображения помощи используйте */help*',
+                {parse_mode: 'Markdown'},
+            ).
+                catch((reason: string) => logger.fatal('bot.on([\'text\'] error: ' + reason));
         }
     }
 }
 
-const masterBotToken = ['6881067197:AAHLj70waoWo5PnS009QYyy8U3ka9SuZhWg'];
+const masterBotToken = '6881067197:AAHLj70waoWo5PnS009QYyy8U3ka9SuZhWg';
 
 const masterBot = new MasterBot(masterBotToken);
 masterBot.launchBots();
