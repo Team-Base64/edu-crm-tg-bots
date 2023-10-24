@@ -1,4 +1,5 @@
-import client from './grpc/client';
+//import client from './grpc/client';
+//import stream from './grpc/stream';
 require('dotenv').config();
 import {ProtoMessage} from '../types/interfaces';
 import Bots from './bot';
@@ -22,12 +23,22 @@ export default class Net {
     }
 
     sendMessageToClient(message: ProtoMessage) {
-        if (message.chatID !== undefined) {
+        // if (message.chatID !== undefined) {
+        //     logger.debug(`sendMessageToClient: chatID: ${message.chatID}, text = ${message.text}`);
+        //     client.recieve(message, function(creationFailed: string, productCreated: unknown) {
+        //         console.log('On Success:', productCreated);
+        //         console.log('On Failure:', creationFailed);
+        //     });
+        // } else {
+        //     logger.error(`sendMessageToClient error, no such chat id = ${message.chatID}`);
+        // }
+         if (message.chatID !== undefined) {
             logger.debug(`sendMessageToClient: chatID: ${message.chatID}, text = ${message.text}`);
-            client.recieve(message, function(creationFailed: string, productCreated: unknown) {
-                console.log('On Success:', productCreated);
-                console.log('On Failure:', creationFailed);
-            });
+            // stream.send(message, function(creationFailed: string, productCreated: unknown) {
+            //     console.log('On Success:', productCreated);
+            //     console.log('On Failure:', creationFailed);
+            // });
+            //stream.write(message)
         } else {
             logger.error(`sendMessageToClient error, no such chat id = ${message.chatID}`);
         }
