@@ -4,9 +4,7 @@ on:
   push:
 
 env:
-  USER: "team-base64"
-  IMAGE: "edu-crm-tg-slave-bot-app"
-  TAG: "latest"
+  IMAGE: "ghcr.io/team-base64/edu-crm-tg-slave-bot-app"
   CONTAINER: "tg-slave-bot"
 
 permissions:
@@ -29,4 +27,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: "${{ env.USER}}/${{ env.IMAGE }}:${{ env.TAG }}"
+          tags: ${{ env.IMAGE }}:latest
