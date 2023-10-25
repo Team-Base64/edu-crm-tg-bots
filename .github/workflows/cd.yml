@@ -9,13 +9,12 @@ env:
   TAG: "latest"
   CONTAINER: "tg-slave-bot"
 
-permissions:
-  contents: read
-  packages: write
-
 jobs:
   build:
     if: contains(github.event.head_commit.message, '[DEPLOY]')
+    permissions:
+      contents: read
+      packages: write
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
