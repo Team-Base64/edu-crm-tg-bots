@@ -98,8 +98,8 @@ export default class Bots {
             logger.trace(`this.senderChat.get(ctx.message.chat.id) 
             ${this.senderChat.get(ctx.message.chat.id)}`);
 
-            ctx.reply(ctx.message.text).
-                catch((reason: string) => logger.error('bot.on([\'text\'] error: ' + reason));
+            //ctx.reply(ctx.message.text).
+            //    catch((reason: string) => logger.error('bot.on([\'text\'] error: ' + reason));
 
             if (this.senderChat.has(ctx.message.chat.id)) {
                 this.sendMessageToClient(

@@ -1,7 +1,7 @@
 import client from './client';
 import net from './server';
 //@ts-ignores
-const stream = client.startChat(function(error, newsStatus) {
+const stream = client.startChatTG(function(error, newsStatus) {
     if (error) {
       console.error(error);
     }

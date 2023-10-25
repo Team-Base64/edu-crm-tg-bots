@@ -1,5 +1,4 @@
 //grpc_tools_node_protoc --js_out=import_style=commonjs,binary:. --grpc_out=grpc_js:. proto/model.proto
-//npx protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --ts_out=grpc_js:./proto -I ./proto ./proto/*.proto
 syntax = "proto3";
 
 package chat;
@@ -15,5 +14,5 @@ bool isSuccessful = 1;
 }
 
 service BotChat {
-rpc StartChat(stream Message) returns (stream Message);
+rpc StartChatTG(stream Message) returns (stream Message);
 }
