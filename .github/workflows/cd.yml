@@ -1,0 +1,24 @@
+name: CD
+
+on:
+  push:
+
+env:
+  REGISTRY: "ghcr.io"
+  IMAGE: "team-base64/edu-crm-tg-slave-bot-app:latest"
+  CONTAINER: "tg-slave-bot"
+
+jobs:
+  build:
+    if: contains(github.event.head_commit.message, '[DEPLOY]')
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - run: |
+          docker login ghcr.io --username leonard-pak --password ${{ secrets.GHCR_TOKEN }}
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE }} .
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE }}
