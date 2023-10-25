@@ -26,4 +26,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: "${{ env.IMAGE }}:${{ env.TAG }}"
+          tags: "${{ env.USER}}/${{ env.IMAGE }}:${{ env.TAG }}"
