@@ -2,24 +2,31 @@ name: CD
 
 on:
   push:
-  workflow_dispatch:
 
 env:
-  REGISTRY: "ghcr.io"
-  IMAGE: "team-base64/edu-crm-tg-slave-bot-app:latest"
+  USER: "team-base64"
+  IMAGE: "edu-crm-tg-slave-bot-app"
+  TAG: "latest"
   CONTAINER: "tg-slave-bot"
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build:
     if: contains(github.event.head_commit.message, '[DEPLOY]')
-    permissions:
-      contents: read
-      packages: write
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - run: |
-          docker login ghcr.io --username leonard-pak --password ${{ secrets.GHCR_TOKEN }}
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE }} .
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE }}
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: "${{ env.USER}}/${{ env.IMAGE }}:${{ env.TAG }}"
