@@ -24,4 +24,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: $REGISTRY:$TAG
+          tags: "${{ github.env.REGISTRY }}:${{ github.env.TAG }}"
