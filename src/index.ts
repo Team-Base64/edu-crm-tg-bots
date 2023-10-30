@@ -38,7 +38,7 @@ export default class Net {
             const request = new messages.Message();
             request.setText(message.text);
             request.setChatid(message.chatID);
-            getStream().write(request);
+            getStream.write(request);
             // stream.send(message, function(creationFailed: string, productCreated: unknown) {
             //     console.log('On Success:', productCreated);
             //     console.log('On Failure:', creationFailed);

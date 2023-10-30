@@ -12,8 +12,8 @@ const getConnect = () => {
         'chat:8082',
         grpc.credentials.createInsecure(),
     );
-    client.waitForReady(5000, (() => console.log('lol')));
-    // }
+    // client.waitForReady(5000, (() => console.log('lol')));
+    // }s
     return client;
 };
 
