@@ -109,6 +109,7 @@ web_modules/
 .vs
 .idea
 node_modules
+*.rdb
 
 model_grpc_pb.js
 model_pb.js

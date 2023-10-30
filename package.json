@@ -7,9 +7,11 @@
     "start": "npm run protogen && npm run run",
     "run": "npx ts-node src/grpc/server.ts",
     "master": "npx ts-node src/masterBot/masterBot.ts",
+    "db": "npx ts-node src/db/db.ts",
     "lint": "npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
     "protogen": "grpc_tools_node_protoc --js_out=import_style=commonjs,binary:. --grpc_out=grpc_js:. src/grpc/proto/model.proto",
+    "prototype": "npx protoc --plugin=protoc-gen-ts= node_modules/.bin/protoc-gen-ts --ts_out=grpc_js:. src/grpc/proto/model.proto",
     "set-env": "export $(grep -v '^#' .env | xargs -d '\\n')"
   },
   "keywords": [],
@@ -21,6 +23,7 @@
     "google-protobuf": "^3.21.2",
     "pino": "^8.16.0",
     "pino-pretty": "^10.2.3",
+    "protoc-gen-ts": "^0.8.7",
     "redis": "^4.6.10",
     "telegraf": "^4.14.0"
   },
