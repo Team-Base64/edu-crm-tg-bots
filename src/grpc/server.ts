@@ -1,6 +1,6 @@
-//import { ProtoMessage } from '../../types/interfaces';
+// import { ProtoMessage } from '../../types/interfaces';
 import Net from '../index';
-//import {ProtoMessage} from '../../types/interfaces';
+// import {ProtoMessage} from '../../types/interfaces';
 // const grpc = require('@grpc/grpc-js');
 // const services = require('./proto/model_grpc_pb');
 // const messages = require('./proto/model_pb');
@@ -10,10 +10,10 @@ const tokens = [
     '1290980811:AAEgopVWqb7o0I72cwdIGGZRsRyE0GGNkLA',
 ];
 
-//@ts-ignores
+// @ts-ignores
 const net = new Net(tokens, [0, 1]);
 
-export default net
+export default net;
 
 // function main() {
 //     //@ts-ignores
@@ -29,16 +29,16 @@ export default net
 //         console.log('Stream success: ', newsStatus.success);
 //         client.close();
 //       });
-//       //let mes =  messages.chat.Message({chatID: 1, text:"hello client stream" })  
-//       //const mes : services.Message =  {chatID: 1, text:"hello client stream" }  
+//       //let mes =  messages.chat.Message({chatID: 1, text:"hello client stream" })
+//       //const mes : services.Message =  {chatID: 1, text:"hello client stream" }
 //       //call.write(mes)
 //     //call.write({text:"123", chatID:1})
-//     var request = new messages.Message();                                                                                                                                                             
-//     request.setText("foo");      
-//     request.setChatid(1);                                                                                                                                                                                  
+//     var request = new messages.Message();
+//     request.setText("foo");
+//     request.setChatid(1);
 
-//     call.write(request);   
-    
+//     call.write(request);
+
 //     call.end();
 //     // let employeeIdList = [1, 10, 2];
 //     // _.each(employeeIdList, function (employeeId) {
@@ -47,5 +47,5 @@ export default net
 //   //console.log(net)
 //     //call.end();
 //   }
-  
+
 //   main();

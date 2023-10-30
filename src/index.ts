@@ -1,6 +1,6 @@
-//import client from './grpc/client';
+// import client from './grpc/client';
 const messages = require('./grpc/proto/model_pb');
-import stream from './grpc/stream';
+import getStream from './grpc/stream';
 require('dotenv').config();
 import {ProtoMessage} from '../types/interfaces';
 import Bots from './bot';
@@ -33,17 +33,17 @@ export default class Net {
         // } else {
         //     logger.error(`sendMessageToClient error, no such chat id = ${message.chatID}`);
         // }
-         if (message.chatID !== undefined) {
+        if (message.chatID !== undefined) {
             logger.debug(`sendMessageToClient: chatID: ${message.chatID}, text = ${message.text}`);
-            var request = new messages.Message();                                                                                                                                                             
-            request.setText(message.text);      
-            request.setChatid(message.chatID);                                                                                                                                                                                  
-            stream.write(request);   
+            const request = new messages.Message();
+            request.setText(message.text);
+            request.setChatid(message.chatID);
+            getStream().write(request);
             // stream.send(message, function(creationFailed: string, productCreated: unknown) {
             //     console.log('On Success:', productCreated);
             //     console.log('On Failure:', creationFailed);
             // });
-            //stream.write(message)
+            // stream.write(message)
         } else {
             logger.error(`sendMessageToClient error, no such chat id = ${message.chatID}`);
         }
