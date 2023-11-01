@@ -51,6 +51,6 @@
     ],
     "func-call-spacing": "off",
     "@typescript-eslint/no-var-requires": "warn",
-    "require-jsdoc": "warn"
+    "require-jsdoc": "off"
   }
 }
