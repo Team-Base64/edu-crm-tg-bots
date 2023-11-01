@@ -19,10 +19,22 @@
     "sourceType": "module"
   },
   "rules": {
-    "semi": ["error", "always"],
-    "quotes": ["error", "single"],
-    "indent": ["error", 4],
-    "no-mixed-spaces-and-tabs": ["error", "smart-tabs"],
+    "semi": [
+      "error",
+      "always"
+    ],
+    "quotes": [
+      "error",
+      "single"
+    ],
+    "indent": [
+      "error",
+      4
+    ],
+    "no-mixed-spaces-and-tabs": [
+      "error",
+      "smart-tabs"
+    ],
     "no-duplicate-imports": "error",
     "linebreak-style": "off",
     "@typescript-eslint/no-empty-function": "warn",
@@ -31,8 +43,14 @@
     "tsdoc/syntax": "warn",
     "valid-jsdoc": "off",
     "react/no-children-prop": "off",
-    "max-len": ["error", { "code": 105 }],
+    "max-len": [
+      "error",
+      {
+        "code": 105
+      }
+    ],
     "func-call-spacing": "off",
-    "@typescript-eslint/no-var-requires": "warn"
+    "@typescript-eslint/no-var-requires": "warn",
+    "require-jsdoc": "warn"
   }
 }
