@@ -1,6 +1,7 @@
 // import client from './grpc/client';
 const messages = require('./grpc/proto/model_pb');
 //import getStream from './grpc/stream';
+import stream from './grpc/stream';
 require('dotenv').config();
 import {ProtoMessage} from '../types/interfaces';
 import Bots from './bot';
@@ -35,10 +36,11 @@ export default class Net {
         // }
         if (message.chatID !== undefined) {
             logger.debug(`sendMessageToClient: chatID: ${message.chatID}, text = ${message.text}`);
+            console.log(`sendMessageToClient: chatID: ${message.chatID}, text = ${message.text}`);
             const request = new messages.Message();
             request.setText(message.text);
             request.setChatid(message.chatID);
-            //getStream.write(request);
+            stream.write(request);
             // stream.send(message, function(creationFailed: string, productCreated: unknown) {
             //     console.log('On Success:', productCreated);
             //     console.log('On Failure:', creationFailed);
