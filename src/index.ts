@@ -26,27 +26,12 @@ export default class Net {
     }
 
     sendMessageToClient(message: ProtoMessage) {
-        // if (message.chatID !== undefined) {
-        //     logger.debug(`sendMessageToClient: chatID: ${message.chatID}, text = ${message.text}`);
-        //     client.recieve(message, function(creationFailed: string, productCreated: unknown) {
-        //         console.log('On Success:', productCreated);
-        //         console.log('On Failure:', creationFailed);
-        //     });
-        // } else {
-        //     logger.error(`sendMessageToClient error, no such chat id = ${message.chatID}`);
-        // }
         if (message.chatID !== undefined) {
-            logger.debug(`sendMessageToClient: chatID: ${message.chatID}, text = ${message.text}`);
-            console.log(`sendMessageToClient: chatID: ${message.chatID}, text = ${message.text}`);
+            logger.info(`sendMessageToClient: chatID: ${message.chatID}, text = ${message.text}`);
             const request = new messages.Message();
             request.setText(message.text);
             request.setChatid(message.chatID);
             streamInstance.self.write(request);
-            // stream.send(message, function(creationFailed: string, productCreated: unknown) {
-            //     console.log('On Success:', productCreated);
-            //     console.log('On Failure:', creationFailed);
-            // });
-            // stream.write(message)
         } else {
             logger.error(`sendMessageToClient error, no such chat id = ${message.chatID}`);
         }

@@ -5,6 +5,7 @@ import NonChannel = Update.NonChannel;
 import New = Update.New;
 import TextMessage = Message.TextMessage;
 import {logger} from './utils/logger';
+
 const {Telegraf} = require('telegraf');
 
 
@@ -12,7 +13,7 @@ interface updateContext extends Context {
     message: (New & NonChannel & TextMessage & Message) | undefined,
 }
 
-type SendMessageTo = {botToken: string, telegramChatID: number};
+type SendMessageTo = { botToken: string, telegramChatID: number };
 
 export default class Bots {
     bots;
@@ -40,6 +41,7 @@ export default class Bots {
             this.bots.set(token, new Telegraf(token));
         });
     }
+
     initBots(chatIDs: Array<number>) {
         Array.from(this.bots.values()).forEach((bot, index) => {
             bot.start(this.#onStartCommand.bind(this, chatIDs[index]));
@@ -69,8 +71,7 @@ export default class Bots {
     }
 
     #onStartCommand(chatID: number, ctx: Context) {
-        ctx.reply('Run /addClass command').
-            catch((reason: string) => logger.error('bot.start() error: ' + reason));
+        ctx.reply('Run /addClass command').catch((reason: string) => logger.error('bot.start() error: ' + reason));
 
         if (ctx.message && ctx.message.from.id) {
             this.context.set(
@@ -81,8 +82,7 @@ export default class Bots {
             this.senderChat.set(ctx.message.chat.id, chatID);
         } else {
             logger.error('bot.start: ', 'no ctx.message && ctx.message.from.id');
-            ctx.reply('error occurred. Try later.').
-                catch((reason: string) => logger.error('bot.start() error: ' + reason));
+            ctx.reply('error occurred. Try later.').catch((reason: string) => logger.error('bot.start() error: ' + reason));
         }
     }
 
@@ -98,7 +98,7 @@ export default class Bots {
             logger.trace(`this.senderChat.get(ctx.message.chat.id) 
             ${this.senderChat.get(ctx.message.chat.id)}`);
 
-            //ctx.reply(ctx.message.text).
+            // ctx.reply(ctx.message.text).
             //    catch((reason: string) => logger.error('bot.on([\'text\'] error: ' + reason));
 
             if (this.senderChat.has(ctx.message.chat.id)) {

@@ -1,42 +1,32 @@
 import client from './client';
 import net from './server';
+import {logger} from '../utils/logger';
 
 class GRPCstream {
     #stream: any;
-
-    constructor() {
-    }
 
     get self() {
         return this.#stream;
     }
 
     connect() {
-        // @ts-ignores
-        this.#stream = client.startChatTG((error, newsStatus) => {
+        this.#stream = client.startChatTG((error: string, newsStatus: { success: string }) => {
             if (error) {
                 console.error(error);
             }
             console.log('Stream success: ', newsStatus.success);
             client.close();
         });
-        // @ts-ignores
-        this.#stream.on('data', (response) => {
-            // console.log(response);
+        this.#stream.on('data', (response: { array: Array<string> }) => {
             console.log('Message from backend: ', {text: response.array[0], chatID: response.array[1]});
-            net.sendMessageFromClient({text: response.array[0], chatID: response.array[1]});
+            net.sendMessageFromClient({text: response.array[0], chatID: Number(response.array[1])});
         });
         this.#stream.on('end', () => {
-            console.log('End grpc stream');
-            // this.#stream.();
+            logger.info('End grpc stream');
             setTimeout(() => this.connect(), 1000);
-            // this.connect();
         });
-        // @ts-ignores
-        this.#stream.on('error', (e) => {
-            console.log('Error catch, stream:  ', e);
-            // console.log("state22 ", state);
-            // channel.watchConnectivityState(state, Infinity, () => {console.log("3!!", state)})
+        this.#stream.on('error', (error: string) => {
+            logger.error('Error catch, stream:  ', error);
         });
     }
 }
