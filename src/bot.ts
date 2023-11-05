@@ -7,9 +7,6 @@ import TextMessage = Message.TextMessage;
 import DocumentMessage = Message.DocumentMessage;
 import PhotoMessage = Message.PhotoMessage;
 import { logger } from "./utils/logger";
-import axios from "axios";
-import * as fs from "fs";
-import { request } from "http";
 
 const { Telegraf } = require("telegraf");
 
@@ -65,7 +62,7 @@ export default class Bots {
 
       bot.on(["text"], this.#onTextMessage.bind(this));
       bot.on(["photo"], this.#onPhotoAttachmentSend.bind(this));
-      bot.on(["document"], this.#onDocumentAttachmentSend.bind(this));
+      bot.on(["document"], this.#onFileAttachmentSend.bind(this));
     });
   }
 
@@ -135,44 +132,45 @@ export default class Bots {
       logger.warn("bot.on(['text']: no message");
     }
   }
-
   async #onPhotoAttachmentSend(ctx: updateContext) {
     if (ctx.message && ctx.message.photo) {
       logger.trace(ctx.message.photo);
-      const response = await this.#getBot(ctx)
-        .telegram.getFileLink(ctx.message.photo[1].file_id)
-        .then((link: URL) => {
-          logger.info(link.toString());
-          return axios.get(link.toString(), { responseType: "blob" });
-        })
-        .catch((err: unknown) => logger.error(err));
-
-      this.sendMessageWithAttachToClient({
-        chatID: this.senderChat.get(ctx.message.chat.id) as number,
-        text: ctx.message.text,
-        mimeType: "ctx.message.photo[0]" ?? "",
-        file: response.data,
-      });
+      // const response = await this.#getBot(ctx)
+      //   .telegram.getFileLink(ctx.message.photo[1].file_id)
+      //   .then((link: URL) => {
+      //     logger.info(link.toString());
+      //     return axios.get(link.toString(), { responseType: "blob" });
+      //   })
+      //   .catch((err: unknown) => logger.error(err));
+      //
+      // this.sendMessageWithAttachToClient({
+      //   chatID: this.senderChat.get(ctx.message.chat.id) as number,
+      //   text: ctx.message.text,
+      //   mimeType: "ctx.message.photo[0]" ?? "",
+      //   file: response.data,
+      // });
     } else {
       logger.warn("bot.on(['text']: no message");
     }
   }
 
-  async #onDocumentAttachmentSend(ctx: updateContext) {
+  async #onFileAttachmentSend(ctx: updateContext) {
     if (ctx.message && ctx.message.document) {
       logger.trace(
         this.#getBot(ctx).telegram.getFile(ctx.message.document.file_id),
       );
-      const response = await this.#getBot(ctx)
-        .telegram.getFileLink(ctx.message.document.file_id)
-        .then((link: URL) => axios.get(link.toString()))
-        .catch((err: unknown) => logger.error(err));
+      // const response = await
+      // this.#getBot(ctx).telegram.getFileLink(ctx.message.document.file_id).
+      //     then((link: URL) => axios.get(link.toString(), {responseType: 'blob'})).
+      //     catch((err: unknown) => logger.error(err));
 
       this.sendMessageWithAttachToClient({
         chatID: this.senderChat.get(ctx.message.chat.id) as number,
         text: ctx.message.text,
-        mimeType: ctx.message.document.mime_type ?? "",
-        file: response.data,
+        mimetype: ctx.message.document.mime_type ?? "",
+        fileLink: "",
+        // file: new Blob([response.data]),
+        // file: response.blob(),
       });
     } else {
       logger.warn("bot.on(['text']: no message");
