@@ -1,9 +1,6 @@
-// import client from './grpc/client';
 const messages = require('./grpc/proto/model_pb');
-// import getStream from './grpc/stream';
-// import stream from './grpc/stream';
 require('dotenv').config();
-import {ProtoMessage} from '../types/interfaces';
+import {ProtoAttachMessage, ProtoMessage} from '../types/interfaces';
 import Bots from './bot';
 import {logger} from './utils/logger';
 import {streamInstance} from './grpc/server';
@@ -12,7 +9,8 @@ export default class Net {
     bots;
 
     constructor(tokens: Array<string>, chatIDs: Array<number>) {
-        this.bots = new Bots(tokens, chatIDs, this.sendMessageToClient);
+        this.bots = new Bots(tokens, chatIDs,
+            this.sendMessageToClient, this.sendMessageWithAttachToClient);
         this.bots.launchBots();
     }
 
@@ -34,6 +32,19 @@ export default class Net {
             streamInstance.self.write(request);
         } else {
             logger.error(`sendMessageToClient error, no such chat id = ${message.chatID}`);
+        }
+    }
+
+    sendMessageWithAttachToClient(message: ProtoAttachMessage) {
+        if (message.chatID !== undefined) {
+            logger.info(`sendMessageToClient: chatID: ${message.chatID}, text = ${message.text},
+             mimeType: ${message.mimeType}, file: ${message.file}`);
+            // const request = new messages.Message();
+            // request.setText(message.text);
+            // request.setChatid(message.chatID);
+            // streamInstance.self.write(request);
+        } else {
+            logger.error(`sendMessageWithAttachToClient error, no such chat id = ${message.chatID}`);
         }
     }
 }

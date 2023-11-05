@@ -15,7 +15,7 @@ const run = () => {
     logger.info('called main');
     const stream = new GRPCstream();
 
-    stream.connect();
+    // stream.connect();
 
     try {
         const channel = client.getChannel();
@@ -30,9 +30,9 @@ const run = () => {
     } catch (error) {
         logger.fatal(error);
     } finally {
-        setInterval(() => {
-            console.log('state from setInt: ', client.getChannel().getConnectivityState(false));
-        }, 5000);
+        // setInterval(() => {
+        //     logger.trace('state from setInt: ', client.getChannel().getConnectivityState(false));
+        // }, 5000);
     }
 
     return stream;

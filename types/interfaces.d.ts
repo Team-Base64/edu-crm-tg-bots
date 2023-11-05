@@ -3,3 +3,8 @@ export interface ProtoMessage {
     text: string,
     time?: number
 }
+
+export interface ProtoAttachMessage extends ProtoMessage{
+    file: File,
+    mimeType: string
+}
