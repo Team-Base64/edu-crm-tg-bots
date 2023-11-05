@@ -3,7 +3,7 @@ require("dotenv").config();
 import { ProtoAttachMessage, ProtoMessage } from "../types/interfaces";
 import Bots from "./bot";
 import { logger } from "./utils/logger";
-import { streamInstance } from "./grpc/server";
+// import { streamInstance } from "./grpc/server";
 
 export default class Net {
   bots;
@@ -37,7 +37,7 @@ export default class Net {
       const request = new messages.Message();
       request.setText(message.text);
       request.setChatid(message.chatID);
-      streamInstance.self.write(request);
+      // streamInstance.self.write(request);
     } else {
       logger.error(
         `sendMessageToClient error, no such chat id = ${message.chatID}`,
@@ -47,8 +47,10 @@ export default class Net {
 
   sendMessageWithAttachToClient(message: ProtoAttachMessage) {
     if (message.chatID !== undefined) {
-      logger.info(`sendMessageToClient: chatID: ${message.chatID}, text = ${message.text},
-             mimeType: ${message.mimeType}, file: ${message.file}`);
+      logger.info(`sendMessageToClient: chatID: ${message.chatID}, text = ${
+        message.text
+      },
+             mimeType: ${message.mimeType}, isFile: ${!!message.file}`);
       // const request = new messages.Message();
       // request.setText(message.text);
       // request.setChatid(message.chatID);
