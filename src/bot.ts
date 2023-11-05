@@ -7,7 +7,8 @@ import TextMessage = Message.TextMessage;
 import DocumentMessage = Message.DocumentMessage;
 import PhotoMessage = Message.PhotoMessage;
 import {logger} from './utils/logger';
-import axios from 'axios';
+// import axios from 'axios';
+
 
 const {Telegraf} = require('telegraf');
 
@@ -77,7 +78,8 @@ export default class Bots {
     }
 
     #onStartCommand(chatID: number, ctx: Context) {
-        ctx.reply('Run /addClass command').catch((reason: string) => logger.error('bot.start() error: ' + reason));
+        ctx.reply('Run /addClass command')
+            .catch((reason: string) => logger.error('bot.start() error: ' + reason));
 
         if (ctx.message && ctx.message.from.id) {
             this.context.set(
@@ -88,12 +90,14 @@ export default class Bots {
             this.senderChat.set(ctx.message.chat.id, chatID);
         } else {
             logger.error('bot.start: ', 'no ctx.message && ctx.message.from.id');
-            ctx.reply('error occurred. Try later.').catch((reason: string) => logger.error('bot.start() error: ' + reason));
+            ctx.reply('error occurred. Try later.')
+                .catch((reason: string) => logger.error('bot.start() error: ' + reason));
         }
     }
 
     #onHelpCommand(ctx: updateContext) {
-        ctx.reply('Run /addClass command to send me a token from your teacher!').catch((reason: string) => logger.error('bot.help error: ' + reason));
+        ctx.reply('Run /addClass command to send me a token from your teacher!')
+            .catch((reason: string) => logger.error('bot.help error: ' + reason));
     }
 
     #onTextMessage(ctx: updateContext) {
@@ -120,15 +124,20 @@ export default class Bots {
     async #onAttachmentSend(ctx: updateContext) {
         if (ctx.message && ctx.message.document) {
             logger.trace(this.#getBot(ctx).telegram.getFile(ctx.message.document.file_id));
-            const response = await this.#getBot(ctx).telegram.getFileLink(ctx.message.document.file_id).
-                then((link: URL) => axios.get(link.toString())).
-                catch((err: unknown) => logger.error(err));
+            // const response = await
+            // this.#getBot(ctx).telegram.getFileLink(ctx.message.document.file_id).
+            //     then((link: URL) => axios.get(link.toString(), {responseType: 'blob'})).
+            //     catch((err: unknown) => logger.error(err));
+
 
             this.sendMessageWithAttachToClient({
                 chatID: this.senderChat.get(ctx.message.chat.id) as number,
                 text: ctx.message.text,
-                mimeType: ctx.message.document.mime_type ?? '',
-                file: response.data,
+                mimetype: ctx.message.document.mime_type ?? '',
+                fileLink: '',
+                // file: new Blob([response.data]),
+                // file: response.blob(),
+
             });
         } else {
             logger.warn('bot.on([\'text\']: no message');

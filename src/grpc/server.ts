@@ -15,7 +15,7 @@ const run = () => {
     logger.info('called main');
     const stream = new GRPCstream();
 
-    // stream.connect();
+    stream.connect();
 
     try {
         const channel = client.getChannel();

@@ -5,6 +5,7 @@ export interface ProtoMessage {
 }
 
 export interface ProtoAttachMessage extends ProtoMessage{
-    file: File,
-    mimeType: string
+    // file: Blob,
+    mimetype: string
+    fileLink: string
 }
