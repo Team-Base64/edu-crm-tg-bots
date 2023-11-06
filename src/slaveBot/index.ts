@@ -1,11 +1,11 @@
-const messages = require('./grpc/proto/model_pb');
+const messages = require('../grpc/proto/model_pb');
 require('dotenv').config();
-import { ProtoAttachMessage, ProtoMessage } from '../types/interfaces';
-import Bots from './bot';
-import { logger } from './utils/logger';
-import { streamInstance } from './grpc/server';
+import { ProtoAttachMessage, ProtoMessage } from '../../types/interfaces';
+import Bots from './slaveBot';
+import { logger } from '../utils/logger';
+// import { streamInstance } from '../grpc/server';
 
-import client from './grpc/client';
+// import client from '../grpc/client';
 
 export default class Net {
     bots;
@@ -48,7 +48,7 @@ export default class Net {
             const request = new messages.Message();
             request.setText(message.text);
             request.setChatid(message.chatid);
-            streamInstance.self.write(request);
+            // streamInstance.self.write(request);
         } else {
             logger.error(
                 `sendMessageToClient error, no such chat id = ${message.chatid}`,
@@ -61,20 +61,16 @@ export default class Net {
             logger.info(`sendMessageToClient: chatID: ${message.chatid}, text = ${message.text},
              mimeType: ${message.mimetype}, fileLink: ${message.fileLink}`);
 
-            logger.debug(
-                `mimeType: ${message.mimetype}, fileLink: ${message.fileLink}`,
-            );
-
-            const request = new messages.FileUploadRequest();
-            request.setChatid(message.chatid);
-            request.setText(message.text);
-            request.setMimetype(message.mimetype);
-            request.setFilelink(message.fileLink);
-            client.uploadAttachesTG(request, (error: string) => {
-                if (error) {
-                    logger.error(error);
-                }
-            });
+            // const request = new messages.FileUploadRequest();
+            // request.setChatid(message.chatid);
+            // request.setText(message.text);
+            // request.setMimetype(message.mimetype);
+            // request.setFilelink(message.fileLink);
+            // client.uploadAttachesTG(request, (error: string) => {
+            //     if (error) {
+            //         logger.error(error);
+            //     }
+            // });
         } else {
             logger.error(
                 `sendMessageWithAttachToClient error, no such chat id = ${message.chatid}`,

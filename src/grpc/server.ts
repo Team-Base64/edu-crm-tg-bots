@@ -1,4 +1,4 @@
-import Net from '../index';
+import Net from '../slaveBot';
 import client from './client';
 import GRPCstream from './stream';
 import { logger } from '../utils/logger';

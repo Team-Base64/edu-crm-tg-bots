@@ -1,26 +1,15 @@
-import { ProtoAttachMessage, ProtoMessage } from '../types/interfaces';
+import {
+    ProtoAttachMessage,
+    ProtoMessage,
+    updateContext,
+} from '../../types/interfaces';
 import { Context } from 'telegraf';
-import { Message, Update } from '@telegraf/types';
-import NonChannel = Update.NonChannel;
-import New = Update.New;
-import TextMessage = Message.TextMessage;
-import DocumentMessage = Message.DocumentMessage;
-import PhotoMessage = Message.PhotoMessage;
-import { logger } from './utils/logger';
+
+import { logger } from '../utils/logger';
+import { changeHttpsToHttps } from '../utils/url';
 
 const { Telegraf } = require('telegraf');
 const mime = require('mime');
-
-interface updateContext extends Context {
-    message:
-        | (New &
-              NonChannel &
-              TextMessage &
-              Message &
-              DocumentMessage &
-              PhotoMessage)
-        | undefined;
-}
 
 type SendMessageTo = { botToken: string; telegramChatID: number };
 
@@ -137,16 +126,15 @@ export default class Bots {
 
     async #onPhotoAttachmentSend(ctx: updateContext) {
         if (ctx.message && ctx.message.photo) {
-            logger.trace(ctx.message.photo);
             const fileLink = await this.#getBot(ctx)
-                .telegram.getFileLink(ctx.message.photo.at(3)?.file_id)
+                .telegram.getFileLink(ctx.message.photo.at(-1)?.file_id)
                 .catch((err: unknown) => logger.error(err));
 
             this.sendMessageWithAttachToClient({
                 chatid: this.senderChat.get(ctx.message.chat.id) ?? 1,
-                text: ctx.message.text,
+                text: ctx.message.text ?? '',
                 mimetype: mime.getType(fileLink),
-                fileLink,
+                fileLink: changeHttpsToHttps(fileLink),
             });
         } else {
             logger.warn("bot.on(['text']: no message");
@@ -166,11 +154,11 @@ export default class Bots {
 
             this.sendMessageWithAttachToClient({
                 chatid: this.senderChat.get(ctx.message.chat.id) ?? 1,
-                text: ctx.message.text,
+                text: ctx.message.text ?? '',
                 mimetype:
                     ctx.message.document.mime_type ??
                     mime.getType(ctx.message.document.file_name ?? fileLink),
-                fileLink,
+                fileLink: changeHttpsToHttps(fileLink),
             });
         } else {
             logger.warn("bot.on(['text']: no message");
