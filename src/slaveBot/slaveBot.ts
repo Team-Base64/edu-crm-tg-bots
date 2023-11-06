@@ -1,4 +1,8 @@
-import { ProtoAttachMessage, ProtoMessage } from '../../types/interfaces';
+import {
+    ProtoAttachMessage,
+    ProtoMessage,
+    updateContext,
+} from '../../types/interfaces';
 import { Context } from 'telegraf';
 
 import { logger } from '../utils/logger';
@@ -122,14 +126,13 @@ export default class Bots {
 
     async #onPhotoAttachmentSend(ctx: updateContext) {
         if (ctx.message && ctx.message.photo) {
-            logger.trace(ctx.message.photo);
             const fileLink = await this.#getBot(ctx)
-                .telegram.getFileLink(ctx.message.photo.at(3)?.file_id)
+                .telegram.getFileLink(ctx.message.photo.at(-1)?.file_id)
                 .catch((err: unknown) => logger.error(err));
 
             this.sendMessageWithAttachToClient({
                 chatid: this.senderChat.get(ctx.message.chat.id) ?? 1,
-                text: ctx.message.text,
+                text: ctx.message.text ?? '',
                 mimetype: mime.getType(fileLink),
                 fileLink: changeHttpsToHttps(fileLink),
             });
@@ -151,7 +154,7 @@ export default class Bots {
 
             this.sendMessageWithAttachToClient({
                 chatid: this.senderChat.get(ctx.message.chat.id) ?? 1,
-                text: ctx.message.text,
+                text: ctx.message.text ?? '',
                 mimetype:
                     ctx.message.document.mime_type ??
                     mime.getType(ctx.message.document.file_name ?? fileLink),
