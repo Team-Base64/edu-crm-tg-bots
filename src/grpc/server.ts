@@ -1,24 +1,15 @@
-import Net from '../slaveBot';
-import client from './client';
 import GRPCstream from './stream';
 import { logger } from '../utils/logger';
+import { clientInstance } from '../index';
 
-const tokens = [
-    '1064016468:AAEaJJWW0Snm_sZsmQtgoEFbUTYj6pM60hk',
-    '1290980811:AAEgopVWqb7o0I72cwdIGGZRsRyE0GGNkLA',
-];
-
-const net = new Net(tokens, [0, 1]);
-
-export default net;
-const run = () => {
+export const getStream = () => {
     logger.info('called main');
     const stream = new GRPCstream();
 
     // stream.connect();
 
     try {
-        const channel = client.getChannel();
+        const channel = clientInstance.getChannel();
         const state = channel.getConnectivityState(false);
         logger.info('state ', state);
         channel.watchConnectivityState(2, Infinity, () => {
@@ -37,5 +28,3 @@ const run = () => {
 
     return stream;
 };
-
-export const streamInstance = run();

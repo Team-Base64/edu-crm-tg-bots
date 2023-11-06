@@ -1,14 +1,38 @@
 import { Context } from 'telegraf';
 import { logger } from '../utils/logger';
 import { updateContext } from '../../types/interfaces';
+import { dbInstance } from '../index';
+import SlaveBotBalancer from './slaveBotBalancer';
 
 const { Telegraf } = require('telegraf');
 
-class MasterBot {
+type isValidFunType = (token: string) => {
+    isvalid: boolean;
+    classid: number;
+};
+type createWebChatFunType = (studentid: number, classid: number) => number;
+type registerWeb = (name: string, avatar: string) => number;
+
+export default class MasterBot {
     bot;
     slaveBots;
+    verifyTokenWeb: isValidFunType;
+    createChatWeb: createWebChatFunType;
+    registerWeb: registerWeb;
+    slaveBotBalancer: SlaveBotBalancer;
 
-    constructor(token: string) {
+    constructor(
+        token: string,
+        verifyTokenWeb: isValidFunType,
+        createChatWeb: createWebChatFunType,
+        registerWeb: registerWeb,
+    ) {
+        this.verifyTokenWeb = verifyTokenWeb;
+        this.createChatWeb = createChatWeb;
+        this.registerWeb = registerWeb;
+
+        this.slaveBotBalancer = new SlaveBotBalancer();
+
         this.bot = new Telegraf(token);
 
         this.initBots();
@@ -44,10 +68,6 @@ class MasterBot {
         );
     }
 
-    // addChatID(chatID: number) {
-    //
-    // }
-
     #onStartCommand(ctx: Context) {
         ctx.reply('Отправьте мне код, чтобы подключиться к классу').catch(
             (reason: string) => logger.fatal('bot.start() error: ' + reason),
@@ -61,19 +81,49 @@ class MasterBot {
         ).catch((reason: string) => logger.fatal('bot.help error: ' + reason));
     }
 
-    #onTextMessage(ctx: updateContext) {
+    async #onTextMessage(ctx: updateContext) {
         if (ctx.message && Number.isInteger(Number(ctx.message.text))) {
-            ctx.reply(
-                'Ваш бот для общения с преподавателем: ' +
-                    `*${
-                        this.slaveBots[0]
-                        // this.slaveBots[ctx.message.text % this.slaveBots.length]
-                    }*. ` +
-                    'Нажмите */start*, когда перейдете в этот бот',
-                { parse_mode: 'Markdown' },
-            ).catch((reason: string) =>
-                logger.fatal("bot.on(['text'] error: " + reason),
-            );
+            const { isvalid, classid } = this.verifyTokenWeb(ctx.message.text);
+            if (isvalid) {
+                let { userExists, chatid, studentid } =
+                    (await dbInstance.checkIfUserExists(
+                        ctx.message.from.id,
+                        classid,
+                    )) ?? { userExists: false };
+
+                let slaveBotLink = '';
+                if (!userExists) {
+                    studentid = this.registerWeb(
+                        (ctx.message.from.last_name ??
+                            ctx.message.from.username) +
+                            (ctx.message.from.last_name ?? ''),
+                        '',
+                    );
+
+                    chatid = this.createChatWeb(studentid, classid);
+
+                    slaveBotLink = await this.#getNewSlaveBot(
+                        chatid,
+                        ctx.message.from.id,
+                        studentid,
+                        classid,
+                    );
+                } else {
+                    slaveBotLink = await dbInstance.getExistingSlaveBot(
+                        chatid,
+                        ctx.message.from.id,
+                    );
+                }
+
+                ctx.reply(
+                    'Ваш бот для общения с преподавателем: ' +
+                        `*${slaveBotLink}*. ` +
+                        'Нажмите */start*, когда перейдете в этот бот',
+                    { parse_mode: 'Markdown' },
+                ).catch((reason: string) =>
+                    logger.fatal("bot.on(['text'] error: " + reason),
+                );
+            }
         } else {
             logger.warn("bot.on(['text']: no message / NaN");
             ctx.reply(
@@ -85,9 +135,29 @@ class MasterBot {
             );
         }
     }
+
+    async #getNewSlaveBot(
+        chatid: number,
+        userid: number,
+        studentid: number,
+        classid: number,
+    ) {
+        const currentSlaveBots =
+            await dbInstance.getCurrentSlaveBotsForUser(userid);
+
+        let botid = 0;
+        let link = '';
+        if (!currentSlaveBots) {
+            const botData = await this.slaveBotBalancer.getFirstEverBotId();
+            botid = botData.botid;
+            link = botData.link;
+        } else {
+            const botData = this.slaveBotBalancer.getNextBot(currentSlaveBots);
+            botid = botData.botid;
+            link = botData.link;
+        }
+        await dbInstance.addUser(chatid, userid, studentid, classid, botid);
+
+        return link;
+    }
 }
-
-const masterBotToken = '6881067197:AAHLj70waoWo5PnS009QYyy8U3ka9SuZhWg';
-
-const masterBot = new MasterBot(masterBotToken);
-masterBot.launchBot();

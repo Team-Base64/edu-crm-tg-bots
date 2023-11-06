@@ -6,10 +6,8 @@
   "scripts": {
     "start": "npm run protogen && npm run run",
     "start:dev": "npm run protogen && npm run dev",
-    "dev": "nodemon src/grpc/server.ts",
-    "run": "npx ts-node src/grpc/server.ts",
-    "master": "npx ts-node src/masterBot/masterBot.ts",
-    "master:dev": "nodemon src/masterBot/masterBot.ts",
+    "dev": "nodemon src/index.ts",
+    "run": "npx ts-node src/index.ts",
     "lint": "npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
     "protogen": "npx grpc_tools_node_protoc --js_out=import_style=commonjs,binary:. --grpc_out=grpc_js:. src/grpc/proto/model.proto",
@@ -20,10 +18,13 @@
   "license": "ISC",
   "dependencies": {
     "@grpc/grpc-js": "^1.9.5",
+    "@types/pg": "^8.10.7",
     "google-protobuf": "^3.21.2",
     "grpc_tools_node_protoc_ts": "^5.3.3",
     "grpc-tools": "^1.12.4",
     "mime": "^3.0.0",
+    "node-json-db": "^2.3.0",
+    "pg": "^8.11.3",
     "telegraf": "^4.14.0"
   },
   "devDependencies": {

@@ -1,0 +1,46 @@
+version: '3.5'
+services:
+    db:
+        container_name: db
+        image: 'postgres:16'
+        hostname: db
+        ports:
+            - '8000:5432'
+        volumes:
+            - ./db:/docker-entrypoint-initdb.d/
+            - ./tmp/postgres-data:/var/postgres_data # Это для того чтобы после перезапуска докера база сохранялась
+        environment:
+            POSTGRES_USER: spuser
+            POSTGRES_DB: tgBotsDb
+            POSTGRES_PASSWORD: newpwd
+            PGDATA: /var/postgres_data # Это для того чтобы после перезапуска докера база сохранялась
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -d tgBotsDb -U spuser']
+            interval: 5s
+            timeout: 10s
+            retries: 120
+        networks:
+            - my-network
+
+    app:
+        container_name: app
+        build:
+            context: .
+            args:
+                # LOGDIR: /var/app/logs # Куда в контейнере писать логи. Закомментить чтобы писалось в консоль контейнера
+                LOGLEVEL: 'debug' # Уровень логов
+                DOCKER: true # Флаг для докера
+        hostname: app
+        volumes:
+            - ./tmp:/var/app/logs # куда сохранять логи локально
+        depends_on:
+            db:
+                condition: service_healthy
+        ports:
+            - '8086:8086'
+        networks:
+            - my-network
+networks:
+    my-network:
+        name: db-network
+        driver: bridge

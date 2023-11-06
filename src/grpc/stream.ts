@@ -1,6 +1,5 @@
-import client from './client';
-import net from './server';
 import { logger } from '../utils/logger';
+import { clientInstance, netSlaveBotInstance } from '../index';
 
 class GRPCstream {
     #stream: any;
@@ -10,13 +9,13 @@ class GRPCstream {
     }
 
     connect() {
-        this.#stream = client.startChatTG(
+        this.#stream = clientInstance.startChatTG(
             (error: string, newsStatus: { success: string }) => {
                 if (error) {
                     console.error(error);
                 }
                 console.log('Stream success: ', newsStatus.success);
-                client.close();
+                clientInstance.close();
             },
         );
         this.#stream.on('data', (response: { array: Array<string> }) => {
@@ -24,7 +23,7 @@ class GRPCstream {
                 text: response.array[0],
                 chatID: response.array[1],
             });
-            net.sendMessageFromClient({
+            netSlaveBotInstance.sendMessageFromClient({
                 text: response.array[0],
                 chatid: Number(response.array[1]),
                 fileLink: '',

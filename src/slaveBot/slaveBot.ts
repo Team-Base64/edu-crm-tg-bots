@@ -13,7 +13,7 @@ const mime = require('mime');
 
 type SendMessageTo = { botToken: string; telegramChatID: number };
 
-export default class Bots {
+export default class SlaveBots {
     bots;
     context;
     sendMessageToClient;
