@@ -62,15 +62,31 @@ export default class Net {
              mimeType: ${message.mimetype}, fileLink: ${message.fileLink}`);
 
             const request = new messages.FileUploadRequest();
-            request.setChatid(message.chatid);
-            request.setText(message.text);
+            //request.setChatid(message.chatid);
+            //request.setText(message.text);
             request.setMimetype(message.mimetype);
             request.setFilelink(message.fileLink);
-            client.uploadAttachesTG(request, (error: string) => {
-                if (error) {
-                    logger.error(error);
-                }
-            });
+            client.uploadFile(
+                request,
+                (error: string, response: { array: Array<string> }) => {
+                    if (error) {
+                        logger.error(error);
+                    } else {
+                        logger.info(
+                            `response inner file url: ${response.array[1]}`,
+                        );
+                        const request2 = new messages.Message();
+                        request2.setText(message.text);
+                        request2.setChatid(message.chatid);
+                        // нужно ставить тип сообщения
+                        request2.setMessagetype('message');
+                        request2.setAttachesurlsList([response.array[1]]);
+                        // если это домашка, поставить id домашки
+                        request2.setHomeworkid(-1);
+                        streamInstance.self.write(request2);
+                    }
+                },
+            );
         } else {
             logger.error(
                 `sendMessageWithAttachToClient error, no such chat id = ${message.chatid}`,
