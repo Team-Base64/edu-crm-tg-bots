@@ -1,27 +1,11 @@
-import { ProtoAttachMessage, ProtoMessage } from '../types/interfaces';
+import { ProtoAttachMessage, ProtoMessage } from '../../types/interfaces';
 import { Context } from 'telegraf';
-import { Message, Update } from '@telegraf/types';
-import NonChannel = Update.NonChannel;
-import New = Update.New;
-import TextMessage = Message.TextMessage;
-import DocumentMessage = Message.DocumentMessage;
-import PhotoMessage = Message.PhotoMessage;
-import { logger } from './utils/logger';
-import { changeHttpsToHttps } from './utils/url';
+
+import { logger } from '../utils/logger';
+import { changeHttpsToHttps } from '../utils/url';
 
 const { Telegraf } = require('telegraf');
 const mime = require('mime');
-
-interface updateContext extends Context {
-    message:
-        | (New &
-              NonChannel &
-              TextMessage &
-              Message &
-              DocumentMessage &
-              PhotoMessage)
-        | undefined;
-}
 
 type SendMessageTo = { botToken: string; telegramChatID: number };
 

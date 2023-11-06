@@ -1,7 +1,7 @@
 const messages = require('./grpc/proto/model_pb');
 require('dotenv').config();
 import { ProtoAttachMessage, ProtoMessage } from '../types/interfaces';
-import Bots from './bot';
+import Bots from './slaveBot/bot';
 import { logger } from './utils/logger';
 import { streamInstance } from './grpc/server';
 

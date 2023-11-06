@@ -8,6 +8,8 @@
     "start:dev": "npm run protogen && npm run dev",
     "dev": "nodemon src/grpc/server.ts",
     "run": "npx ts-node src/grpc/server.ts",
+    "master": "npx ts-node src/masterBot/masterBot.ts",
+    "master:dev": "nodemon src/masterBot/masterBot.ts",
     "lint": "npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
     "protogen": "npx grpc_tools_node_protoc --js_out=import_style=commonjs,binary:. --grpc_out=grpc_js:. src/grpc/proto/model.proto",
