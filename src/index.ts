@@ -61,6 +61,10 @@ export default class Net {
             logger.info(`sendMessageToClient: chatID: ${message.chatid}, text = ${message.text},
              mimeType: ${message.mimetype}, fileLink: ${message.fileLink}`);
 
+            logger.debug(
+                `mimeType: ${message.mimetype}, fileLink: ${message.fileLink}`,
+            );
+
             const request = new messages.FileUploadRequest();
             request.setChatid(message.chatid);
             request.setText(message.text);

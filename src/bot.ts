@@ -9,7 +9,7 @@ import PhotoMessage = Message.PhotoMessage;
 import { logger } from './utils/logger';
 
 const { Telegraf } = require('telegraf');
-const mime = require('mime-types');
+const mime = require('mime');
 
 interface updateContext extends Context {
     message:
@@ -145,7 +145,7 @@ export default class Bots {
             this.sendMessageWithAttachToClient({
                 chatid: this.senderChat.get(ctx.message.chat.id) ?? 1,
                 text: ctx.message.text,
-                mimetype: mime.lookup('image'),
+                mimetype: mime.getType(fileLink),
                 fileLink,
             });
         } else {
@@ -169,7 +169,7 @@ export default class Bots {
                 text: ctx.message.text,
                 mimetype:
                     ctx.message.document.mime_type ??
-                    mime.lookup(ctx.message.document.file_name ?? ''),
+                    mime.getType(ctx.message.document.file_name ?? fileLink),
                 fileLink,
             });
         } else {
