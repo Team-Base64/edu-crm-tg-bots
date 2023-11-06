@@ -21,13 +21,14 @@ class GRPCstream {
         );
         this.#stream.on('data', (response: { array: Array<string> }) => {
             console.log('Message from backend: ', {
-                text: response.array[0],
-                chatID: response.array[1],
+                text: response.array[1],
+                chatID: response.array[0],
+                attaches: response.array[2],
             });
             net.sendMessageFromClient({
-                text: response.array[0],
-                chatid: Number(response.array[1]),
-                fileLink: '',
+                text: response.array[1],
+                chatid: Number(response.array[0]),
+                fileLink: response.array[2][0],
                 mimetype: '',
             });
         });
