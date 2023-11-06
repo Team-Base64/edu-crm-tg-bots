@@ -7,6 +7,7 @@ import TextMessage = Message.TextMessage;
 import DocumentMessage = Message.DocumentMessage;
 import PhotoMessage = Message.PhotoMessage;
 import { logger } from './utils/logger';
+import { changeHttpsToHttps } from './utils/url';
 
 const { Telegraf } = require('telegraf');
 const mime = require('mime');
@@ -146,7 +147,7 @@ export default class Bots {
                 chatid: this.senderChat.get(ctx.message.chat.id) ?? 1,
                 text: ctx.message.text,
                 mimetype: mime.getType(fileLink),
-                fileLink,
+                fileLink: changeHttpsToHttps(fileLink),
             });
         } else {
             logger.warn("bot.on(['text']: no message");
@@ -170,7 +171,7 @@ export default class Bots {
                 mimetype:
                     ctx.message.document.mime_type ??
                     mime.getType(ctx.message.document.file_name ?? fileLink),
-                fileLink,
+                fileLink: changeHttpsToHttps(fileLink),
             });
         } else {
             logger.warn("bot.on(['text']: no message");
