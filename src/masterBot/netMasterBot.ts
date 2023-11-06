@@ -18,6 +18,9 @@ export class NetMasterBot {
      * @returns isvalid, classid
      * */
     verifyToken(token: string) {
+        if (token === '12345679') return { isvalid: true, classid: 2 };
+        if (token === '12345678') return { isvalid: true, classid: 3 };
+        if (token === '12345670') return { isvalid: true, classid: 4 };
         return { isvalid: true, classid: 1 };
     }
 
@@ -26,6 +29,9 @@ export class NetMasterBot {
      * @returns chatid
      * */
     createChat(studentid: number, classid: number) {
+        if (classid === 2) return 2;
+        if (classid === 3) return 3;
+        if (classid === 4) return 4;
         return 1;
     }
 

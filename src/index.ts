@@ -6,6 +6,8 @@ import { NetMasterBot } from './masterBot/netMasterBot';
 
 export const dbInstance = new Store(postgresConfig);
 
+export const masterBotTokenLength = 8;
+
 const slaveTokens = [
     '1064016468:AAEaJJWW0Snm_sZsmQtgoEFbUTYj6pM60hk',
     '1290980811:AAEgopVWqb7o0I72cwdIGGZRsRyE0GGNkLA',

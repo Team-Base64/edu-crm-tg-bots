@@ -1,7 +1,7 @@
 import { Context } from 'telegraf';
 import { logger } from '../utils/logger';
 import { updateContext } from '../../types/interfaces';
-import { dbInstance } from '../index';
+import { dbInstance, masterBotTokenLength } from '../index';
 import SlaveBotBalancer from './slaveBotBalancer';
 
 const { Telegraf } = require('telegraf');
@@ -48,24 +48,16 @@ export default class MasterBot {
         this.bot.help(this.#onHelpCommand);
 
         this.bot.on('message', this.#onTextMessage.bind(this));
-
-        // this.bot.command('', (ctx) => ctx.reply('Hey there'));
     }
 
     launchBot() {
         this.bot
             .launch()
             .catch((reason: string) =>
-                logger.fatal('bot.launch() error: ' + reason),
+                logger.fatal('master bot.launch() error: ' + reason),
             );
         process.once('SIGINT', () => this.bot.stop('SIGINT'));
         process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
-    }
-
-    sendMessage(ctx: Context, text: string) {
-        ctx.reply(text).catch((reason: string) =>
-            logger.fatal('bot.launch() error: ' + reason),
-        );
     }
 
     #onStartCommand(ctx: Context) {
@@ -82,7 +74,7 @@ export default class MasterBot {
     }
 
     async #onTextMessage(ctx: updateContext) {
-        if (ctx.message && Number.isInteger(Number(ctx.message.text))) {
+        if (ctx.message && ctx.message.text.length === masterBotTokenLength) {
             const { isvalid, classid } = this.verifyTokenWeb(ctx.message.text);
             if (isvalid) {
                 let { userExists, chatid, studentid } =
@@ -90,6 +82,8 @@ export default class MasterBot {
                         ctx.message.from.id,
                         classid,
                     )) ?? { userExists: false };
+
+                logger.debug('#onTextMessage, userExists: ' + userExists);
 
                 let slaveBotLink = '';
                 if (!userExists) {
@@ -107,27 +101,47 @@ export default class MasterBot {
                         ctx.message.from.id,
                         studentid,
                         classid,
-                    );
+                    ).catch((error) => {
+                        logger.warn(error.message);
+                        ctx.reply(
+                            'К сожалению Вам сейчас недоступно создание бота. ' +
+                                'Отвяжите активный бот и попробуйте снова',
+                        );
+                        return '';
+                    });
+                    logger.trace('new, slaveBotLink: ' + slaveBotLink);
                 } else {
                     slaveBotLink = await dbInstance.getExistingSlaveBot(
                         chatid,
                         ctx.message.from.id,
                     );
+                    logger.trace('exist, slaveBotLink: ' + slaveBotLink);
                 }
 
+                if (slaveBotLink) {
+                    ctx.reply(
+                        'Ваш бот для общения с преподавателем: ' +
+                            `*${slaveBotLink}*. ` +
+                            'Нажмите */start*, когда перейдете в этот бот',
+                        { parse_mode: 'Markdown' },
+                    ).catch((reason: string) =>
+                        logger.fatal("bot.on(['text'] error: " + reason),
+                    );
+                }
+            } else {
+                logger.info("bot.on(['text']: invalid token");
                 ctx.reply(
-                    'Ваш бот для общения с преподавателем: ' +
-                        `*${slaveBotLink}*. ` +
-                        'Нажмите */start*, когда перейдете в этот бот',
+                    'Неверный токен. ' +
+                        'Для отображения помощи используйте */help*',
                     { parse_mode: 'Markdown' },
                 ).catch((reason: string) =>
                     logger.fatal("bot.on(['text'] error: " + reason),
                 );
             }
         } else {
-            logger.warn("bot.on(['text']: no message / NaN");
+            logger.info("bot.on(['text']: wrong symbols count");
             ctx.reply(
-                'Токен может содержать только цифры. ' +
+                `Токен может содержать только ${masterBotTokenLength} символов. ` +
                     'Для отображения помощи используйте */help*',
                 { parse_mode: 'Markdown' },
             ).catch((reason: string) =>
@@ -145,14 +159,22 @@ export default class MasterBot {
         const currentSlaveBots =
             await dbInstance.getCurrentSlaveBotsForUser(userid);
 
+        logger.debug('currentSlaveBots: ' + currentSlaveBots);
+
         let botid = 0;
         let link = '';
         if (!currentSlaveBots) {
             const botData = await this.slaveBotBalancer.getFirstEverBotId();
+            logger.trace('getFirstEverBotId' + JSON.stringify(botData));
             botid = botData.botid;
             link = botData.link;
+        } else if (
+            currentSlaveBots.size === this.slaveBotBalancer.allBots.length
+        ) {
+            return Promise.reject(new Error('no free bots available'));
         } else {
             const botData = this.slaveBotBalancer.getNextBot(currentSlaveBots);
+            logger.trace('getNextBot' + JSON.stringify(botData));
             botid = botData.botid;
             link = botData.link;
         }

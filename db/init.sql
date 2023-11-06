@@ -11,5 +11,5 @@ CREATE TABLE users (
     student_id serial NOT NULL,
     user_id serial NOT NULL,
     class_id serial NOT NULL,
-    token_id serial REFERENCES bots (id) ON DELETE CASCADE
+    bot_id serial REFERENCES bots (id) ON DELETE CASCADE
 );

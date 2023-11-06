@@ -6,7 +6,7 @@ export const getStream = () => {
     logger.info('starting stream');
     const stream = new GRPCstream();
 
-    stream.connect();
+    // stream.connect();
 
     try {
         const channel = client.getChannel();

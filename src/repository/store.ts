@@ -54,7 +54,12 @@ export class Store {
          from bots;`,
                 [],
             )
-            .then(() => postgresLogger.info('got getSlaveBotsNumber'))
+            .then((data) => {
+                if (!data.rows.length) {
+                    return 0;
+                }
+                return data.rows[0].count;
+            })
             .catch((error) => {
                 postgresLogger.error('getSlaveBotsNumber: ' + error);
                 return undefined;
@@ -74,6 +79,27 @@ export class Store {
                     return undefined;
                 }
                 return data.rows[0].link;
+            })
+            .catch((error) => {
+                postgresLogger.error('getSlaveBotsNumber: ' + error);
+                return undefined;
+            });
+    }
+
+    async getSlaveBotsLinksAndId() {
+        return this.#db
+            .query(
+                `select link, id
+         from bots;`,
+                [],
+            )
+            .then((data) => {
+                if (!data.rows.length) {
+                    return [];
+                }
+                return data.rows.map((element) => {
+                    return { link: element.link, id: element.id };
+                });
             })
             .catch((error) => {
                 postgresLogger.error('getSlaveBotsNumber: ' + error);
@@ -115,7 +141,7 @@ export class Store {
             .query(
                 `select bots.link
          from bots
-                  INNER JOIN users ON users.token_id = bots.id
+                  INNER JOIN users ON users.bot_id = bots.id
          where users.user_id = $1
            and users.chat_id = $2;`,
                 [userid, chatid],
@@ -137,20 +163,20 @@ export class Store {
             .query(
                 `select bots.id, bots.link
          from bots
-                  INNER JOIN users ON users.token_id = bots.id
+                  INNER JOIN users ON users.bot_id = bots.id
          where users.user_id = $1;`,
                 [userid],
             )
             .then((data) => {
+                const elements = new Map<number, string>();
                 if (!data.rows.length) {
-                    return undefined;
+                    return elements;
                 }
-                return data.rows.map((element) => {
-                    return {
-                        botid: element.id,
-                        link: element.link,
-                    };
+
+                data.rows.forEach((element) => {
+                    elements.set(element.id, element.link);
                 });
+                return elements;
             })
             .catch((error) => {
                 postgresLogger.error('getCurrentSlaveBot: ' + error);
@@ -168,10 +194,10 @@ export class Store {
         return this.#db
             .query(
                 `insert into users
-                     (chatid, user_id, student_id, class_id, bot_id)
+                     (chat_id, user_id, student_id, class_id, bot_id)
                  values ($1, $2, $3, $4, $5)
                  returning id;`,
-                [chatid, userid, studentid, chatid, botid],
+                [chatid, userid, studentid, classid, botid],
             )
             .then((data) => {
                 if (!data.rows.length) {

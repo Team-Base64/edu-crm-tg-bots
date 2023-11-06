@@ -1,11 +1,12 @@
-import { streamInstance } from '../index';
+const messages = require('../grpc/proto/model_pb');
+require('dotenv').config();
+
 import { ProtoAttachMessage, ProtoMessage } from '../../types/interfaces';
 import SlaveBots from './slaveBot';
 import { logger } from '../utils/logger';
 import client from '../grpc/client';
 
-const messages = require('../grpc/proto/model_pb');
-require('dotenv').config();
+// import { streamInstance } from '../index';
 
 export default class NetSlaveBot {
     bots;
@@ -48,7 +49,7 @@ export default class NetSlaveBot {
             const request = new messages.Message();
             request.setText(message.text);
             request.setChatid(message.chatid);
-            streamInstance.self.write(request);
+            // streamInstance.self.write(request);
         } else {
             logger.error(
                 `sendMessageToClient error, no such chat id = ${message.chatid}`,

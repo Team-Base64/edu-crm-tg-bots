@@ -4,9 +4,11 @@ import { logger } from '../utils/logger';
 class SlaveBotBalancer {
     #lastBot: number;
     #botCount: number;
+    allBots: Array<{ link: string; id: number }>;
     constructor() {
         this.#lastBot = 0;
         this.#botCount = 0;
+        this.allBots = [];
 
         this.init().catch((error) => {
             logger.fatal(error);
@@ -15,6 +17,7 @@ class SlaveBotBalancer {
 
     async init() {
         this.#botCount = await dbInstance.getSlaveBotsNumber();
+        this.allBots = (await dbInstance.getSlaveBotsLinksAndId()) ?? [];
     }
 
     async getFirstEverBotId() {
@@ -23,10 +26,18 @@ class SlaveBotBalancer {
         return { botid: id, link: await dbInstance.getSlaveBotLink(id) };
     }
 
-    getNextBot(bots: Array<{ botid: number; link: string }>) {
+    getNextBot(bots: Map<number, string>) {
         this.#lastBot += 1;
-        const index = this.#lastBot % bots.length;
-        return { botid: bots[index].botid, link: bots[index].link };
+        const unusedBots = this.allBots.filter(
+            (element) => !bots.has(element.id),
+        );
+
+        logger.info('unusedBots: ' + unusedBots.toString());
+
+        const index = this.#lastBot % unusedBots.length;
+        logger.trace('index: ' + index);
+
+        return { botid: unusedBots[index].id, link: unusedBots[index].link };
     }
 }
 
