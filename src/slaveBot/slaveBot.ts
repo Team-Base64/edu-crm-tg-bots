@@ -35,7 +35,7 @@ export default class SlaveBots {
         this.createBots(tokens);
         this.initBots(chatIDs);
 
-        logger.info(`starting Bots with ${logger.level} level`);
+        logger.info(`starting slave bots with ${logger.level} level`);
     }
 
     createBots(tokens: Array<string>) {

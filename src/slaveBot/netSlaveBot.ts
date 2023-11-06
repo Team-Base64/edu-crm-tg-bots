@@ -1,7 +1,8 @@
-import { clientInstance, streamInstance } from '../index';
+import { streamInstance } from '../index';
 import { ProtoAttachMessage, ProtoMessage } from '../../types/interfaces';
 import SlaveBots from './slaveBot';
 import { logger } from '../utils/logger';
+import client from '../grpc/client';
 
 const messages = require('../grpc/proto/model_pb');
 require('dotenv').config();
@@ -65,7 +66,7 @@ export default class NetSlaveBot {
             request.setText(message.text);
             request.setMimetype(message.mimetype);
             request.setFilelink(message.fileLink);
-            clientInstance.uploadAttachesTG(request, (error: string) => {
+            client.uploadAttachesTG(request, (error: string) => {
                 if (error) {
                     logger.error(error);
                 }

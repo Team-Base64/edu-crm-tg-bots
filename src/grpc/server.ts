@@ -1,17 +1,17 @@
 import GRPCstream from './stream';
 import { logger } from '../utils/logger';
-import { clientInstance } from '../index';
+import client from './client';
 
 export const getStream = () => {
-    logger.info('called main');
+    logger.info('starting stream');
     const stream = new GRPCstream();
 
-    // stream.connect();
+    stream.connect();
 
     try {
-        const channel = clientInstance.getChannel();
+        const channel = client.getChannel();
         const state = channel.getConnectivityState(false);
-        logger.info('state ', state);
+        logger.info('starting channel with state: ', state);
         channel.watchConnectivityState(2, Infinity, () => {
             logger.info('state ready change', state);
             if (channel.getConnectivityState(false) === 3) {

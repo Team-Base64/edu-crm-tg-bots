@@ -39,7 +39,7 @@ export default class MasterBot {
 
         this.slaveBots = ['https://t.me/GG222bot', 'https://t.me/Aintttbot'];
 
-        logger.info(`starting Bots with ${logger.level} level`);
+        logger.info(`starting master bot with ${logger.level} level`);
     }
 
     initBots() {

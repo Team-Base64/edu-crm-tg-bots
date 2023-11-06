@@ -2,7 +2,6 @@ import { getStream } from './grpc/server';
 import { Store } from './repository/store';
 import postgresConfig from './repository/config';
 import NetSlaveBot from './slaveBot/netSlaveBot';
-import { getClient } from './grpc/client';
 import { NetMasterBot } from './masterBot/netMasterBot';
 
 export const dbInstance = new Store(postgresConfig);
@@ -18,5 +17,3 @@ const masterBotToken = '6881067197:AAHLj70waoWo5PnS009QYyy8U3ka9SuZhWg';
 export const netMasterBotInstance = new NetMasterBot(masterBotToken);
 
 export const streamInstance = getStream();
-
-export const clientInstance = getClient();
