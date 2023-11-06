@@ -1,7 +1,7 @@
 import Net from '../index';
 import client from './client';
 import GRPCstream from './stream';
-import {logger} from '../utils/logger';
+import { logger } from '../utils/logger';
 
 const tokens = [
     '1064016468:AAEaJJWW0Snm_sZsmQtgoEFbUTYj6pM60hk',
