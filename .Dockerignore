@@ -1,0 +1,8 @@
+node_modules
+build
+.idea
+.vs
+.vscode
+.tmp
+.mock
+tmp

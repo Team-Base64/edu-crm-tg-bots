@@ -1,0 +1,50 @@
+{
+  "name": "tg-bot-slave",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "npm run protogen && npm run run",
+    "start:dev": "npm run protogen && npm run dev",
+    "dev": "nodemon src/index.ts",
+    "run": "npx ts-node src/index.ts",
+    "lint": "npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
+    "protogen": "npx grpc_tools_node_protoc --js_out=import_style=commonjs,binary:. --grpc_out=grpc_js:. src/grpc/proto/model.proto",
+    "set-env": "export $(grep -v '^#' .env | xargs -d '\\n')"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@grpc/grpc-js": "^1.9.5",
+    "@types/pg": "^8.10.7",
+    "google-protobuf": "^3.21.2",
+    "grpc_tools_node_protoc_ts": "^5.3.3",
+    "grpc-tools": "^1.12.4",
+    "mime": "^3.0.0",
+    "node-json-db": "^2.3.0",
+    "pg": "^8.11.3",
+    "telegraf": "^4.14.0"
+  },
+  "devDependencies": {
+    "@telegraf/types": "^6.9.1",
+    "@types/node": "^18.11.10",
+    "@typescript-eslint/eslint-plugin": "^6.9.1",
+    "@typescript-eslint/parser": "^6.9.1",
+    "dotenv": "^16.3.1",
+    "eslint": "^8.29.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-config-recommended": "^4.1.0",
+    "eslint-plugin-jsdoc": "^39.6.4",
+    "eslint-plugin-prettier": "^5.0.1",
+    "eslint-plugin-tsdoc": "^0.2.17",
+    "eslint-plugin-unused-imports": "^3.0.0",
+    "nodemon": "^3.0.1",
+    "pino": "^8.16.0",
+    "pino-pretty": "^10.2.3",
+    "prettier": "^3.0.3",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  }
+}
