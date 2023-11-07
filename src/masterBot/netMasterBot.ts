@@ -46,23 +46,19 @@ export class NetMasterBot {
         logger.info('verifyToken ' + token);
         const request = new messages.ValidateTokenRequest();
         request.setToken(token);
-        let a = false,
-            b = -1;
-        client.validateToken(request, (err: string, response: number) => {
-            if (err) {
-                logger.error('Error:  ', err);
-                //return { isvalid: false, classid: -1 };
-                return;
-            }
-            logger.info('verifyToken resp ' + response);
-            a = true;
-            b = response;
-            //return { isvalid: true, classid: response };
-        });
-        //logger.info('verifyToken result ' + JSON.stringify(result));
-        logger.info('verifyToken result ' + a + ' ' + b);
-        return { isvalid: a, classid: b };
-        //return result;
+        const result = client
+            .validateToken(request, (err: string, response: number) => {
+                if (err) {
+                    logger.error('Error:  ', err);
+                    return { isvalid: false, classid: -1 };
+                }
+                logger.info('verifyToken resp ' + response);
+                return { isvalid: true, classid: response };
+            })
+            .then((response: { isvalid: number; classid: number }) => response)
+            .catch((error: string) => logger.error(error));
+        logger.info('verifyToken result ' + JSON.stringify(result));
+        return result;
     }
 
     /**
