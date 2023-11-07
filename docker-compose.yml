@@ -38,8 +38,12 @@ services:
                 condition: service_healthy
         ports:
             - '8086:8086'
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
         networks:
             - my-network
+        
+
 networks:
     my-network:
         name: db-network
