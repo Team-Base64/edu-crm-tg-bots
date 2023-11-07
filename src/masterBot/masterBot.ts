@@ -6,10 +6,10 @@ import SlaveBotBalancer from './slaveBotBalancer';
 
 const { Telegraf } = require('telegraf');
 
-type isValidFunType = (token: string) => {
+type isValidFunType = (token: string) => Promise<{
     isvalid: boolean;
     classid: number;
-};
+}>;
 type createWebChatFunType = (studentid: number, classid: number) => number;
 type registerWeb = (name: string, avatar: string) => number;
 
@@ -78,7 +78,12 @@ export default class MasterBot {
 
     async #onTextMessage(ctx: updateContext) {
         if (ctx.message && ctx.message.text.length === masterBotTokenLength) {
-            const { isvalid, classid } = this.verifyTokenWeb(ctx.message.text);
+            const { isvalid, classid } = await this.verifyTokenWeb(
+                ctx.message.text,
+            );
+            logger.info(
+                'verifyTokenWeb, res: ' + JSON.stringify({ isvalid, classid }),
+            );
             if (isvalid) {
                 let { userExists, chatid, studentid } =
                     (await dbInstance.checkIfUserExists(

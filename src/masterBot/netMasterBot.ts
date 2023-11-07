@@ -1,5 +1,6 @@
 import MasterBot from './masterBot';
 import client from '../grpc/client';
+
 const messages = require('../grpc/proto/model_pb');
 import { logger } from '../utils/logger';
 
@@ -20,7 +21,7 @@ export class NetMasterBot {
      *
      * @returns isvalid, classid
      * */
-    verifyToken(token: string) {
+    async verifyToken(token: string) {
         // const func1 = (err: string, response: number) => {
         //     if (err) {
         //         logger.error('Error:  ', err);
@@ -45,20 +46,23 @@ export class NetMasterBot {
         // if (token === '12345670') return { isvalid: true, classid: 4 };
         logger.info('verifyToken ' + token);
         const request = new messages.ValidateTokenRequest();
-        request.setToken(token);
-        const result = client
-            .validateToken(request, (err: string, response: number) => {
-                if (err) {
-                    logger.error('Error:  ', err);
-                    return { isvalid: false, classid: -1 };
-                }
-                logger.info('verifyToken resp ' + response);
-                return { isvalid: true, classid: response };
-            })
-            .then((response: { isvalid: number; classid: number }) => response)
-            .catch((error: string) => logger.error(error));
-        logger.info('verifyToken result ' + JSON.stringify(result));
-        return result;
+
+        const result = new Promise<{ isvalid: boolean; classid: number }>(
+            (resolve, reject) =>
+                client.validateToken(
+                    request,
+                    (err: string, response: number) => {
+                        if (err) {
+                            logger.error('Error:  ', err);
+                            return reject({ isvalid: false, classid: -1 });
+                        }
+                        logger.info('verifyToken resp ' + response);
+                        return resolve({ isvalid: true, classid: response });
+                    },
+                ),
+        );
+
+        return await result;
     }
 
     /**
