@@ -46,6 +46,7 @@ export class NetMasterBot {
         // if (token === '12345670') return { isvalid: true, classid: 4 };
         logger.info('verifyToken ' + token);
         const request = new messages.ValidateTokenRequest();
+        request.setToken(token);
 
         const result = new Promise<{ isvalid: boolean; classid: number }>(
             (resolve, reject) =>
