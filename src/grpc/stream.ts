@@ -25,10 +25,11 @@ class GRPCstream {
         );
         this.#stream.on('data', (response: { array: Array<string> }) => {
             console.log('Message from backend: ', {
-                text: response.array[0],
-                chatID: response.array[1],
+                text: response.array[1],
+                chatID: response.array[0],
+                attaches: response.array[2],
             });
-            const chatid = Number(response.array[1]);
+            const chatid = Number(response.array[0]);
             dbInstance
                 .getSlaveBotTokenAndUserIdByChatId(chatid)
                 .then((sendMessageTo) => {
@@ -36,8 +37,8 @@ class GRPCstream {
                         ? netSlaveBotInstance.sendMessageFromClient(
                               {
                                   chatid,
-                                  text: response.array[0],
-                                  fileLink: '',
+                                  text: response.array[1],
+                                  fileLink: response.array[2][0],
                                   mimetype: '',
                               },
                               sendMessageTo,
