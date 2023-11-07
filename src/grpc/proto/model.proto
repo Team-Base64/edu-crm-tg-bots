@@ -42,6 +42,7 @@ message SolutionData {
 message SendSolutionRequest {
     int32 homeworkID = 1;
     SolutionData solution = 2;
+    int32 studentID = 3;
 }
 
 message SendSolutionResponse { }
@@ -76,7 +77,7 @@ message CreateChatResponse {
 
 service BotChat {
     rpc StartChatTG(stream Message) returns (stream Message);
-    
+
     rpc UploadFile(FileUploadRequest) returns (FileUploadResponse);
     rpc ValidateToken (ValidateTokenRequest) returns (ValidateTokenResponse);
     rpc CreateChat (CreateChatRequest) returns (CreateChatResponse);

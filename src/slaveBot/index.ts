@@ -65,7 +65,7 @@ export default class Net {
             //request.setChatid(message.chatid);
             //request.setText(message.text);
             request.setMimetype(message.mimetype);
-            request.setFilelink(message.fileLink);
+            request.setFileurl(message.fileLink);
             client.uploadFile(
                 request,
                 (error: string, response: { array: Array<string> }) => {
