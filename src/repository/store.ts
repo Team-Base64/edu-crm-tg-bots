@@ -81,15 +81,15 @@ export class Store {
                 return data.rows[0].link;
             })
             .catch((error) => {
-                postgresLogger.error('getSlaveBotsNumber: ' + error);
+                postgresLogger.error('getSlaveBotLink: ' + error);
                 return undefined;
             });
     }
 
-    async getSlaveBotsLinksAndId() {
+    async getSlaveBots() {
         return this.#db
             .query(
-                `select link, id
+                `select link, id, token
          from bots;`,
                 [],
             )
@@ -98,11 +98,15 @@ export class Store {
                     return [];
                 }
                 return data.rows.map((element) => {
-                    return { link: element.link, id: element.id };
+                    return {
+                        link: element.link,
+                        id: element.id,
+                        token: element.token,
+                    };
                 });
             })
             .catch((error) => {
-                postgresLogger.error('getSlaveBotsNumber: ' + error);
+                postgresLogger.error('getSlaveBots: ' + error);
                 return undefined;
             });
     }
@@ -184,6 +188,52 @@ export class Store {
             });
     }
 
+    async getSlaveBotTokenAndUserIdByChatId(chatid: number) {
+        return this.#db
+            .query(
+                `select users.user_id, bots.token
+                 from bots
+                          INNER JOIN users ON users.bot_id = bots.id
+                 where users.chat_id = $1;`,
+                [chatid],
+            )
+            .then((data) => {
+                if (!data.rows.length) {
+                    return null;
+                }
+                return {
+                    botToken: data.rows[0].token,
+                    telegramChatID: data.rows[0].user_id,
+                };
+            })
+            .catch((error) => {
+                postgresLogger.error(
+                    'getSlaveBotTokenAndUserIdByChatId: ' + error,
+                );
+                return undefined;
+            });
+    }
+
+    async getSlaveBotChatIdByUserId(userid: number) {
+        return this.#db
+            .query(
+                `select users.chat_id
+                 from users
+                 where users.user_id = $1;`,
+                [userid],
+            )
+            .then((data) => {
+                if (!data.rows.length) {
+                    return null;
+                }
+                return data.rows[0].chat_id;
+            })
+            .catch((error) => {
+                postgresLogger.error('getSlaveBotChatIdByUserId: ' + error);
+                return undefined;
+            });
+    }
+
     async addUser(
         chatid: number,
         userid: number,
@@ -207,6 +257,23 @@ export class Store {
             })
             .catch((error) => {
                 postgresLogger.error('getCurrentSlaveBot: ' + error);
+                return undefined;
+            });
+    }
+
+    async unlinkBot(linkToBot: string) {
+        return this.#db
+            .query(
+                `delete
+                 from users U USING bots B
+                 where U.bot_id = B.id and B.link = $1;`,
+                [linkToBot],
+            )
+            .then((data) => {
+                return data.rowCount;
+            })
+            .catch((error) => {
+                postgresLogger.error('getSlaveBotChatIdByUserId: ' + error);
                 return undefined;
             });
     }

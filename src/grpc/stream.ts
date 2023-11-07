@@ -1,5 +1,9 @@
 import { logger } from '../utils/logger';
-import { netSlaveBotInstance } from '../index';
+import {
+    dbInstance,
+    netSlaveBotInstance,
+    streamReconnectTimeout,
+} from '../index';
 import client from './client';
 
 class GRPCstream {
@@ -24,16 +28,29 @@ class GRPCstream {
                 text: response.array[0],
                 chatID: response.array[1],
             });
-            netSlaveBotInstance.sendMessageFromClient({
-                text: response.array[0],
-                chatid: Number(response.array[1]),
-                fileLink: '',
-                mimetype: '',
-            });
+            const chatid = Number(response.array[1]);
+            dbInstance
+                .getSlaveBotTokenAndUserIdByChatId(chatid)
+                .then((sendMessageTo) => {
+                    return sendMessageTo
+                        ? netSlaveBotInstance.sendMessageFromClient(
+                              {
+                                  chatid,
+                                  text: response.array[0],
+                                  fileLink: '',
+                                  mimetype: '',
+                              },
+                              sendMessageTo,
+                          )
+                        : new Error(
+                              "this.#stream.on('data'),  no sendMessageTo: ",
+                          );
+                })
+                .catch((error) => logger.error(error));
         });
         this.#stream.on('end', () => {
             logger.info('End grpc stream');
-            setTimeout(() => this.connect(), 1000);
+            setTimeout(() => this.connect(), streamReconnectTimeout * 1000);
         });
         this.#stream.on('error', (error: string) => {
             logger.error('Error catch, stream:  ', error);

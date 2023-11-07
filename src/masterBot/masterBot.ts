@@ -45,7 +45,10 @@ export default class MasterBot {
     initBots() {
         this.bot.start(this.#onStartCommand.bind(this));
 
-        this.bot.help(this.#onHelpCommand);
+        this.bot.help(this.#onDeleteBot.bind(this));
+
+        // this.bot.command('/deleteBot', this.#onDeleteBot.bind(this));
+        // this.bot.hears('/deleteBot', this.#onDeleteBot.bind(this));
 
         this.bot.on('message', this.#onTextMessage.bind(this));
     }
@@ -66,12 +69,12 @@ export default class MasterBot {
         );
     }
 
-    #onHelpCommand(ctx: updateContext) {
-        ctx.reply(
-            'Отправьте сообщение с вашим кодом, ' +
-                'чтобы получить бота для общения с преподавателем',
-        ).catch((reason: string) => logger.fatal('bot.help error: ' + reason));
-    }
+    // #onHelpCommand(ctx: updateContext) {
+    //     ctx.replyWithMarkdownV2(
+    //         'Отправьте сообщение с вашим кодом, ' +
+    //             'чтобы получить бота для общения с преподавателем',
+    //     ).catch((reason: string) => logger.fatal('bot.help error: ' + reason));
+    // }
 
     async #onTextMessage(ctx: updateContext) {
         if (ctx.message && ctx.message.text.length === masterBotTokenLength) {
@@ -105,7 +108,8 @@ export default class MasterBot {
                         logger.warn(error.message);
                         ctx.reply(
                             'К сожалению Вам сейчас недоступно создание бота. ' +
-                                'Отвяжите активный бот и попробуйте снова',
+                                'Отвяжите активный бот c помощью */help* и попробуйте снова',
+                            { parse_mode: 'Markdown' },
                         );
                         return '';
                     });
@@ -181,5 +185,30 @@ export default class MasterBot {
         await dbInstance.addUser(chatid, userid, studentid, classid, botid);
 
         return link;
+    }
+
+    async #onDeleteBot(ctx: updateContext) {
+        logger.debug('#onDeleteBot, text: ' + ctx.message?.text);
+        if (ctx.message && ctx.message.text) {
+            await dbInstance
+                .unlinkBot(ctx.message?.text.replace('/help ', ''))
+                .then((response) => {
+                    ctx.reply(
+                        response
+                            ? 'Бот успешно отвязан'
+                            : 'Бот с такой ссылкой не найден. ' +
+                                  `Если вы хотите отвязать бот, Вы должны ввести команду 
+*/help <ссылка на бот для удаления>*`,
+                        { parse_mode: 'Markdown' },
+                    );
+                })
+                .catch((error) =>
+                    logger.error('#onDeleteBot, error: ' + error),
+                );
+        } else {
+            ctx.reply('Возникало ошибка. Попробуйте позже').catch((error) =>
+                logger.error('#onDeleteBot, no message: ' + error),
+            );
+        }
     }
 }

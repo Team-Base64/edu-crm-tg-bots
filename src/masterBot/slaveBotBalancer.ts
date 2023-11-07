@@ -17,7 +17,7 @@ class SlaveBotBalancer {
 
     async init() {
         this.#botCount = await dbInstance.getSlaveBotsNumber();
-        this.allBots = (await dbInstance.getSlaveBotsLinksAndId()) ?? [];
+        this.allBots = (await dbInstance.getSlaveBots()) ?? [];
     }
 
     async getFirstEverBotId() {

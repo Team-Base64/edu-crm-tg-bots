@@ -2,27 +2,26 @@ const messages = require('../grpc/proto/model_pb');
 require('dotenv').config();
 
 import { ProtoAttachMessage, ProtoMessage } from '../../types/interfaces';
-import SlaveBots from './slaveBot';
+import SlaveBots, { SendMessageTo } from './slaveBot';
 import { logger } from '../utils/logger';
 import client from '../grpc/client';
 
-// import { streamInstance } from '../index';
+import { streamInstance } from '../index';
 
 export default class NetSlaveBot {
     bots;
 
-    constructor(tokens: Array<string>, chatIDs: Array<number>) {
+    constructor() {
         this.bots = new SlaveBots(
-            tokens,
-            chatIDs,
             this.sendMessageToClient,
             this.sendMessageWithAttachToClient,
         );
-        this.bots.launchBots();
     }
 
-    sendMessageFromClient(message: ProtoAttachMessage) {
-        const sendMessageTo = this.bots.context.get(message.chatid);
+    sendMessageFromClient(
+        message: ProtoAttachMessage,
+        sendMessageTo: SendMessageTo,
+    ) {
         if (sendMessageTo) {
             if (message.text) {
                 this.bots.sendMessage(sendMessageTo, message.text);
@@ -49,7 +48,7 @@ export default class NetSlaveBot {
             const request = new messages.Message();
             request.setText(message.text);
             request.setChatid(message.chatid);
-            // streamInstance.self.write(request);
+            streamInstance.self.write(request);
         } else {
             logger.error(
                 `sendMessageToClient error, no such chat id = ${message.chatid}`,
