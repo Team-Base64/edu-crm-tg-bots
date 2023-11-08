@@ -92,7 +92,10 @@ export default class MasterBot {
         if (ctx.message && ctx.message.text.length === masterBotTokenLength) {
             const { isvalid, classid } = await this.verifyTokenWeb(
                 ctx.message.text,
-            ).catch((error) => logger.error('verifyTokenWeb result: ' + error));
+            ).catch((error) => {
+                logger.error('verifyTokenWeb result: ' + error);
+                return error;
+            });
             logger.info(
                 'verifyTokenWeb, res: ' + JSON.stringify({ isvalid, classid }),
             );
@@ -114,6 +117,7 @@ export default class MasterBot {
                         '',
                     ).catch((error) => {
                         logger.error('registerWeb, result: ' + error);
+                        return error;
                     });
 
                     studentid = registerWebResponse?.studentid;
@@ -123,6 +127,7 @@ export default class MasterBot {
                         classid,
                     ).catch((error) => {
                         logger.error('createChatWeb, result: ' + error);
+                        return error;
                     });
 
                     chatid = createChatWebResponse?.chatid;
