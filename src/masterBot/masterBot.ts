@@ -92,12 +92,22 @@ export default class MasterBot {
         if (ctx.message && ctx.message.text.length === masterBotTokenLength) {
             const { isvalid, classid } = await this.verifyTokenWeb(
                 ctx.message.text,
-            ).catch((error) => {
-                logger.error('verifyTokenWeb result: ' + error);
-                return error;
-            });
+            )
+                .then((value) => {
+                    logger.error(
+                        '#onTextMessage, verifyTokenWeb result: ' + value,
+                    );
+                    return value;
+                })
+                .catch((error) => {
+                    logger.error(
+                        '#onTextMessage verifyTokenWeb result: ' + error,
+                    );
+                    return error;
+                });
             logger.info(
-                'verifyTokenWeb, res: ' + JSON.stringify({ isvalid, classid }),
+                '#onTextMessage, verifyTokenWeb, res: ' +
+                    JSON.stringify({ isvalid, classid }),
             );
             if (isvalid) {
                 let { userExists, chatid, studentid } =
