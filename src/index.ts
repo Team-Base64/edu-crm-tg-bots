@@ -11,7 +11,7 @@ import { NetMasterBot } from './masterBot/netMasterBot';
 export const masterBotTokenLength = 8;
 
 // time in seconds
-export const streamReconnectTimeout = 3;
+export const streamReconnectTimeout = 1;
 
 export const dbInstance = new Store(postgresConfig);
 
