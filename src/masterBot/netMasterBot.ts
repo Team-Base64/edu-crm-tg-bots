@@ -1,4 +1,8 @@
-import MasterBot from './masterBot';
+import MasterBot, {
+    createWebChatFunReturnType,
+    isValidFunReturnType,
+    registerWebReturnType,
+} from './masterBot';
 import client from '../grpc/client';
 
 const messages = require('../grpc/proto/model_pb');
@@ -22,48 +26,19 @@ export class NetMasterBot {
      * @returns isvalid, classid
      * */
     async verifyToken(token: string) {
-        // const func1 = (err: string, response: number) => {
-        //     if (err) {
-        //         logger.error('Error:  ', err);
-        //         return { isvalid: false, classid: -1 };
-        //     }
-        //     logger.info('verifyToken resp ' + response);
-        //     return { isvalid: true, classid: response };
-        // };
-        // const newfunc = func1.bind(this);
-        // // if (token === '12345679') return { isvalid: true, classid: 2 };
-        // // if (token === '12345678') return { isvalid: true, classid: 3 };
-        // // if (token === '12345670') return { isvalid: true, classid: 4 };
-        // logger.info('verifyToken ' + token);
-        // const request = new messages.ValidateTokenRequest();
-        // request.setToken(token);
-        // const result = client.validateToken(request);
-        // logger.info('verifyToken result ' + result);
-        // return result;
-
-        // if (token === '12345679') return { isvalid: true, classid: 2 };
-        // if (token === '12345678') return { isvalid: true, classid: 3 };
-        // if (token === '12345670') return { isvalid: true, classid: 4 };
-        logger.info('verifyToken ' + token);
         const request = new messages.ValidateTokenRequest();
         request.setToken(token);
 
-        const result = new Promise<{ isvalid: boolean; classid: number }>(
-            (resolve, reject) =>
-                client.validateToken(
-                    request,
-                    (err: string, response: number) => {
-                        if (err) {
-                            logger.error('Error:  ', err);
-                            return reject({ isvalid: false, classid: -1 });
-                        }
-                        logger.info('verifyToken resp ' + response);
-                        return resolve({ isvalid: true, classid: response });
-                    },
-                ),
+        return new Promise<isValidFunReturnType>((resolve, reject) =>
+            client.validateToken(request, (err: string, response: number) => {
+                if (err) {
+                    logger.error('Error:  ', err);
+                    return reject({ isvalid: false, classid: -1 });
+                }
+                logger.info('verifyToken resp ' + response);
+                return resolve({ isvalid: true, classid: response });
+            }),
         );
-
-        return await result;
     }
 
     /**
@@ -71,25 +46,19 @@ export class NetMasterBot {
      * @returns chatid
      * */
     createChat(studentid: number, classid: number) {
-        // if (classid === 2) return 2;
-        // if (classid === 3) return 3;
-        // if (classid === 4) return 4;
-        logger.info('createChat ' + studentid + ' ' + classid);
         const request = new messages.CreateChatRequest();
         request.setStudentid(studentid);
         request.setClassid(classid);
-        const result = client.createChat(
-            request,
-            (err: string, response: number) => {
+        return new Promise<createWebChatFunReturnType>((resolve, reject) => {
+            client.createChat(request, (err: string, chatid: number) => {
                 if (err) {
                     logger.error('Error:  ', err);
-                    return -1;
+                    return reject({ chatid: -1 });
                 }
-                logger.info('createChat resp ' + response);
-                return response;
-            },
-        );
-        return result;
+                logger.info('createChat resp ' + chatid);
+                return resolve({ chatid });
+            });
+        });
     }
 
     /**
@@ -97,24 +66,20 @@ export class NetMasterBot {
      * @returns studentid
      * */
     register(name: string, avatar: string) {
-        //return 1;
-        logger.info('register ' + name + ' ' + avatar);
         const tg = 'tg';
         const request = new messages.CreateStudentRequest();
         request.setName(name);
         request.setType(tg);
         request.setAvatarurl(avatar);
-        const result = client.createStudent(
-            request,
-            (err: string, response: number) => {
+        return new Promise<registerWebReturnType>((resolve, reject) => {
+            client.createStudent(request, (err: string, studentid: number) => {
                 if (err) {
                     logger.error('Error:  ', err);
-                    return -1;
+                    return reject({ studentid: -1 });
                 }
-                logger.info('register resp ' + response);
-                return response;
-            },
-        );
-        return result;
+                logger.info('register resp ' + studentid);
+                return resolve({ studentid });
+            });
+        });
     }
 }

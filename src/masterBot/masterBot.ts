@@ -6,12 +6,24 @@ import SlaveBotBalancer from './slaveBotBalancer';
 
 const { Telegraf } = require('telegraf');
 
+export type isValidFunReturnType = Awaited<ReturnType<isValidFunType>>;
+export type createWebChatFunReturnType = Awaited<
+    ReturnType<createWebChatFunType>
+>;
+export type registerWebReturnType = Awaited<ReturnType<registerWeb>>;
+
 type isValidFunType = (token: string) => Promise<{
     isvalid: boolean;
     classid: number;
 }>;
-type createWebChatFunType = (studentid: number, classid: number) => number;
-type registerWeb = (name: string, avatar: string) => number;
+type createWebChatFunType = (
+    studentid: number,
+    classid: number,
+) => Promise<{ chatid: number }>;
+type registerWeb = (
+    name: string,
+    avatar: string,
+) => Promise<{ studentid: number }>;
 
 export default class MasterBot {
     bot;
@@ -80,7 +92,7 @@ export default class MasterBot {
         if (ctx.message && ctx.message.text.length === masterBotTokenLength) {
             const { isvalid, classid } = await this.verifyTokenWeb(
                 ctx.message.text,
-            );
+            ).catch((error) => logger.error('verifyTokenWeb result: ' + error));
             logger.info(
                 'verifyTokenWeb, res: ' + JSON.stringify({ isvalid, classid }),
             );
@@ -95,14 +107,25 @@ export default class MasterBot {
 
                 let slaveBotLink = '';
                 if (!userExists) {
-                    studentid = this.registerWeb(
+                    const registerWebResponse = await this.registerWeb(
                         (ctx.message.from.last_name ??
                             ctx.message.from.username) +
                             (ctx.message.from.last_name ?? ''),
                         '',
-                    );
+                    ).catch((error) => {
+                        logger.error('registerWeb, result: ' + error);
+                    });
 
-                    chatid = this.createChatWeb(studentid, classid);
+                    studentid = registerWebResponse?.studentid;
+
+                    const createChatWebResponse = await this.createChatWeb(
+                        studentid,
+                        classid,
+                    ).catch((error) => {
+                        logger.error('createChatWeb, result: ' + error);
+                    });
+
+                    chatid = createChatWebResponse?.chatid;
 
                     slaveBotLink = await this.#getNewSlaveBot(
                         chatid,
