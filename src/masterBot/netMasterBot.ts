@@ -30,14 +30,20 @@ export class NetMasterBot {
         request.setToken(token);
 
         return new Promise<isValidFunReturnType>((resolve, reject) =>
-            client.validateToken(request, (err: string, response: number) => {
-                if (err) {
-                    logger.error('Error:  ', err);
-                    return reject({ isvalid: false, classid: -1 });
-                }
-                logger.info('verifyToken resp ' + response);
-                return resolve({ isvalid: true, classid: response });
-            }),
+            client.validateToken(
+                request,
+                (err: string, response: { array: Array<string> }) => {
+                    if (err) {
+                        logger.error('Error:  ', err);
+                        return reject({ isvalid: false, classid: -1 });
+                    }
+                    logger.info('verifyToken resp ' + response);
+                    return resolve({
+                        isvalid: true,
+                        classid: Number(response.array[0]),
+                    });
+                },
+            ),
         );
     }
 
@@ -50,14 +56,18 @@ export class NetMasterBot {
         request.setStudentid(studentid);
         request.setClassid(classid);
         return new Promise<createWebChatFunReturnType>((resolve, reject) => {
-            client.createChat(request, (err: string, chatid: number) => {
-                if (err) {
-                    logger.error('Error:  ', err);
-                    return reject({ chatid: -1 });
-                }
-                logger.info('createChat resp ' + chatid);
-                return resolve({ chatid });
-            });
+            client.createChat(
+                request,
+                (err: string, response: { array: Array<number> }) => {
+                    if (err) {
+                        logger.error('Error:  ', err);
+                        return reject({ chatid: -1 });
+                    }
+                    logger.info('createChat resp ' + response.array[0]);
+                    const chatid = Number(response.array[0]);
+                    return resolve({ chatid });
+                },
+            );
         });
     }
 
@@ -72,14 +82,21 @@ export class NetMasterBot {
         request.setType(tg);
         request.setAvatarurl(avatar);
         return new Promise<registerWebReturnType>((resolve, reject) => {
-            client.createStudent(request, (err: string, studentid: number) => {
-                if (err) {
-                    logger.error('Error:  ', err);
-                    return reject({ studentid: -1 });
-                }
-                logger.info('register resp ' + studentid);
-                return resolve({ studentid });
-            });
+            client.createStudent(
+                request,
+                (err: string, response: { array: Array<number> }) => {
+                    if (err) {
+                        logger.error('Error:  ', err);
+                        return reject({ studentid: -1 });
+                    }
+                    // logger.info('register resp ' + studentid);
+                    // return resolve({ studentid });
+
+                    logger.info('register resp ' + response.array[0]);
+                    const studentid = Number(response.array[0]);
+                    return resolve({ studentid });
+                },
+            );
         });
     }
 }
