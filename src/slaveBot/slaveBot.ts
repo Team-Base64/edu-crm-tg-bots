@@ -109,8 +109,9 @@ export default class SlaveBots {
 
     async #onTextMessage(ctx: updateContext) {
         if (ctx.message) {
-            const chatid = await dbInstance.getSlaveBotChatIdByUserId(
+            const chatid = await dbInstance.getSlaveBotChatIdByUserIdAndToken(
                 ctx.message.chat.id,
+                ctx.telegram.token,
             );
 
             if (chatid) {
@@ -152,9 +153,12 @@ export default class SlaveBots {
                 .catch((err: string) =>
                     logger.error('#onPhotoAttachmentSend, getFileLink: ' + err),
                 );
+            console.log(ctx.telegram.token);
+            console.log(ctx);
 
-            const chatid = await dbInstance.getSlaveBotChatIdByUserId(
+            const chatid = await dbInstance.getSlaveBotChatIdByUserIdAndToken(
                 ctx.message.chat.id,
+                ctx.telegram.token,
             );
 
             if (chatid) {
@@ -185,8 +189,9 @@ export default class SlaveBots {
                 .telegram.getFileLink(ctx.message.document.file_id)
                 .catch((err: unknown) => logger.error(err));
 
-            const chatid = await dbInstance.getSlaveBotChatIdByUserId(
+            const chatid = await dbInstance.getSlaveBotChatIdByUserIdAndToken(
                 ctx.message.chat.id,
+                ctx.telegram.token,
             );
 
             if (chatid) {

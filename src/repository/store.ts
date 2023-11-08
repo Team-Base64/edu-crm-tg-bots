@@ -214,13 +214,13 @@ export class Store {
             });
     }
 
-    async getSlaveBotChatIdByUserId(userid: number) {
+    async getSlaveBotChatIdByUserIdAndToken(userid: number, token: string) {
         return this.#db
             .query(
                 `select users.chat_id
-                 from users
-                 where users.user_id = $1;`,
-                [userid],
+                 from users INNER JOIN bots ON users.bot_id = bots.id
+                 where users.user_id = $1 AND bots.token = $2;`,
+                [userid, token],
             )
             .then((data) => {
                 if (!data.rows.length) {
