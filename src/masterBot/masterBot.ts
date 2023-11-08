@@ -66,11 +66,10 @@ export default class MasterBot {
     }
 
     launchBot() {
-        this.bot
-            .launch()
-            .catch((reason: string) =>
-                logger.fatal('master bot.launch() error: ' + reason),
-            );
+        this.bot.launch().catch((reason: string) => {
+            logger.fatal('master bot.launch() error: ' + reason);
+            this.launchBot();
+        });
         process.once('SIGINT', () => this.bot.stop('SIGINT'));
         process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
     }
@@ -121,7 +120,7 @@ export default class MasterBot {
                 let slaveBotLink = '';
                 if (!userExists) {
                     const registerWebResponse = await this.registerWeb(
-                        (ctx.message.from.last_name ??
+                        (ctx.message.from.first_name ??
                             ctx.message.from.username) +
                             (ctx.message.from.last_name ?? ''),
                         '',

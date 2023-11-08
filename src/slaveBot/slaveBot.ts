@@ -66,9 +66,10 @@ export default class SlaveBots {
 
     #launchBots() {
         Array.from(this.bots.values()).forEach((bot) => {
-            bot.launch().catch((error: string) =>
-                logger.error('bot.launch() error: ' + error),
-            );
+            bot.launch().catch((error: string) => {
+                logger.error('bot.launch() error: ' + error);
+                this.#launchBots();
+            });
 
             process.once('SIGINT', () => bot.stop('SIGINT'));
             process.once('SIGTERM', () => bot.stop('SIGTERM'));
