@@ -97,7 +97,8 @@ export default class MasterBot {
                 return error;
             });
             logger.info(
-                'verifyTokenWeb, res: ' + JSON.stringify({ isvalid, classid }),
+                '#onTextMessage, verifyTokenWeb, res: ' +
+                    JSON.stringify({ isvalid, classid }),
             );
             if (isvalid) {
                 let { userExists, chatid, studentid } =
