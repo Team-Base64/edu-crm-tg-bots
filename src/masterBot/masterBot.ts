@@ -93,7 +93,7 @@ export default class MasterBot {
             const { isvalid, classid } = await this.verifyTokenWeb(
                 ctx.message.text,
             ).catch((error) => {
-                logger.error('verifyTokenWeb result: ' + error);
+                logger.error('verifyTokenWeb err: ' + error);
                 return error;
             });
             logger.info(

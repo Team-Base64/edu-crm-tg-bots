@@ -71,16 +71,16 @@ export default class NetSlaveBot {
                         logger.error(error);
                     } else {
                         logger.info(
-                            `response inner file url: ${response.array[1]}`,
+                            `response inner file url: ${response.array[0]}`,
                         );
                         const request2 = new messages.Message();
                         request2.setText(message.text);
                         request2.setChatid(message.chatid);
                         // нужно ставить тип сообщения
-                        request2.setMessagetype('message');
-                        request2.setAttachesurlsList([response.array[1]]);
+                        //request2.setMessagetype('message');
+                        request2.setAttachmenturlsList([response.array[0]]);
                         // если это домашка, поставить id домашки
-                        request2.setHomeworkid(-1);
+                        //request2.setHomeworkid(-1);
                         streamInstance.self.write(request2);
                     }
                 },
