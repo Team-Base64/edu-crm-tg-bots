@@ -85,7 +85,12 @@ export default class SlaveBots {
         this.bots
             .get(botToken)
             .telegram.sendDocument(telegramChatID, text)
-            .catch((error: string) => logger.error('sendDocument: ' + error));
+            .catch((error: string) => {
+                logger.error('sendDocument: ' + error);
+                this.bots
+                    .get(botToken)
+                    .telegram.sendMessage('Ошибка при отправке файла');
+            });
         logger.debug('sendDocument: ' + text);
     }
 
@@ -93,7 +98,12 @@ export default class SlaveBots {
         this.bots
             .get(botToken)
             .telegram.sendDocument(telegramChatID, text)
-            .catch((error: string) => logger.error('sendPhoto: ' + error));
+            .catch((error: string) => {
+                logger.error('sendPhoto: ' + error);
+                this.bots
+                    .get(botToken)
+                    .telegram.sendMessage('Ошибка при отправке фото');
+            });
 
         logger.debug('sendPhoto: ' + text);
     }
