@@ -28,7 +28,7 @@ export class NetMasterBot {
     async verifyToken(token: string) {
         const request = new messages.ValidateTokenRequest();
         request.setToken(token);
-
+        logger.info('verifyToken req ' + token);
         return new Promise<isValidFunReturnType>((resolve, reject) =>
             client.validateToken(
                 request,
@@ -55,6 +55,7 @@ export class NetMasterBot {
         const request = new messages.CreateChatRequest();
         request.setStudentid(studentid);
         request.setClassid(classid);
+        logger.info('createChat req ' + studentid + ' ' + classid);
         return new Promise<createWebChatFunReturnType>((resolve, reject) => {
             client.createChat(
                 request,
@@ -81,6 +82,7 @@ export class NetMasterBot {
         request.setName(name);
         request.setType(tg);
         request.setAvatarurl(avatar);
+        logger.info('register req ' + name + ' ' + avatar);
         return new Promise<registerWebReturnType>((resolve, reject) => {
             client.createStudent(
                 request,
