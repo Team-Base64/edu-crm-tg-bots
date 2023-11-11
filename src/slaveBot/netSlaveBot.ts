@@ -29,7 +29,8 @@ export default class NetSlaveBot {
                 } else {
                     this.bots.sendDocument(sendMessageTo, message.fileLink);
                 }
-            } else if (message.text) {
+            }
+            if (message.text) {
                 this.bots.sendMessage(sendMessageTo, message.text);
             }
         } else {
