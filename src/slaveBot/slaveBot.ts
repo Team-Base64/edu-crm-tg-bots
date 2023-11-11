@@ -89,7 +89,10 @@ export default class SlaveBots {
                 logger.error('sendDocument: ' + error);
                 this.bots
                     .get(botToken)
-                    .telegram.sendMessage('Ошибка при отправке файла');
+                    .telegram.sendMessage(
+                        telegramChatID,
+                        'Ошибка при отправке файла',
+                    );
             });
         logger.debug('sendDocument: ' + text);
     }
@@ -102,7 +105,10 @@ export default class SlaveBots {
                 logger.error('sendPhoto: ' + error);
                 this.bots
                     .get(botToken)
-                    .telegram.sendMessage('Ошибка при отправке фото');
+                    .telegram.sendMessage(
+                        telegramChatID,
+                        'Ошибка при отправке фото',
+                    );
             });
 
         logger.debug('sendPhoto: ' + text);
