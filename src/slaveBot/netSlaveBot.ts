@@ -23,15 +23,14 @@ export default class NetSlaveBot {
         sendMessageTo: SendMessageTo,
     ) {
         if (sendMessageTo) {
-            if (message.text) {
-                this.bots.sendMessage(sendMessageTo, message.text);
-            }
             if (message.fileLink) {
                 if (message.mimetype.includes('image')) {
                     this.bots.sendPhoto(sendMessageTo, message.fileLink);
                 } else {
                     this.bots.sendDocument(sendMessageTo, message.fileLink);
                 }
+            } else if (message.text) {
+                this.bots.sendMessage(sendMessageTo, message.text);
             }
         } else {
             logger.error(

@@ -82,12 +82,19 @@ export default class SlaveBots {
     }
 
     sendDocument({ botToken, telegramChatID }: SendMessageTo, text: string) {
-        this.bots.get(botToken).telegram.sendDocument(telegramChatID, text);
+        this.bots
+            .get(botToken)
+            .telegram.sendDocument(telegramChatID, text)
+            .catch((error: string) => logger.error('sendDocument: ' + error));
         logger.debug('sendDocument: ' + text);
     }
 
     sendPhoto({ botToken, telegramChatID }: SendMessageTo, text: string) {
-        this.bots.get(botToken).telegram.sendDocument(telegramChatID, text);
+        this.bots
+            .get(botToken)
+            .telegram.sendDocument(telegramChatID, text)
+            .catch((error: string) => logger.error('sendPhoto: ' + error));
+
         logger.debug('sendPhoto: ' + text);
     }
 
