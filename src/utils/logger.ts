@@ -1,4 +1,5 @@
 const pino = require('pino');
+require('dotenv').config();
 export const logger = pino({
     transport: {
         target: 'pino-pretty',
