@@ -4,13 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "npm run protogen && npm run run",
-    "start:dev": "npm run protogen && npm run dev",
+    "start": "export $(xargs <.env) && npm run protogen && npm run run",
+    "start:dev": "export $(xargs <.env) && npm run protogen && npm run dev",
     "dev": "nodemon src/index.ts",
     "run": "npx ts-node src/index.ts",
     "lint": "npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
-    "protogen": "npx grpc_tools_node_protoc --js_out=import_style=commonjs,binary:. --grpc_out=grpc_js:. src/grpc/proto/model.proto",
+    "protogen": "npx grpc_tools_node_protoc --js_out=import_style=commonjs,binary:. --grpc_out=grpc_js:. src/grpc/proto/model.proto"
   },
   "keywords": [],
   "author": "",

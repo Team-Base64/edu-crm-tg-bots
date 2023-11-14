@@ -17,7 +17,7 @@ inspect-postgres:
 	docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' postgres
 
 postgres-bash:
-	sudo docker exec -it postgres bash
+	sudo docker exec -it ${POSTGRES_HOST} bash
 
 docker-prune-all:
 	sudo docker system prune -a
@@ -25,8 +25,11 @@ docker-prune-all:
 docker-fix:
 	- sudo killall containerd-shim
 
-connect-psql:
-	sudo docker exec -it postgres psql -U spuser -d tgBotsDb
+connect-psql:set-env
+	sudo docker exec -it ${POSTGRES_HOST} psql -U ${POSTGRES_USER} -d ${POSTGRES_DB}
 
-populate-db: 
+populate-db:
 	bash ./db/recreateDb.sh
+
+set-env:
+	export $(xargs <.env)

@@ -9,11 +9,13 @@ services:
         volumes:
             - ./db:/docker-entrypoint-initdb.d/
             - ./tmp/postgres-data:/var/postgres_data # Это для того чтобы после перезапуска докера база сохранялась
-        environment:
-            POSTGRES_USER: spuser
-            POSTGRES_DB: tgBotsDb
-            POSTGRES_PASSWORD: newpwd
-            PGDATA: /var/postgres_data # Это для того чтобы после перезапуска докера база сохранялась
+        env_file:
+            -   .env
+#        environment:
+#            POSTGRES_USER: ${SQL_TG_USER}
+#            POSTGRES_DB: ${SQL_TG_DB_NAME}
+#            POSTGRES_PASSWORD: ${SQL_TG_PWD}
+#            PGDATA: /var/postgres_data # Это для того чтобы после перезапуска докера база сохранялась
         healthcheck:
             test: ['CMD-SHELL', 'pg_isready -d tgBotsDb -U spuser']
             interval: 5s
@@ -42,7 +44,9 @@ services:
             - 'host.docker.internal:host-gateway'
         networks:
             - my-network
-        
+        env_file:
+            - .env
+
 
 networks:
     my-network:
