@@ -56,6 +56,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: |
+          echo '${{ secrets.TG_BOTS_TOKENS_SQL }}' > ${{ env.SQL_SRC }}/3.populate.sql
       - uses: easingthemes/ssh-deploy@main
         with:
           REMOTE_HOST: ${{ secrets.HOST }}
