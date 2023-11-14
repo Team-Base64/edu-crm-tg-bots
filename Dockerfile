@@ -5,4 +5,4 @@ RUN npm ci
 
 COPY ./ ./
 
-ENTRYPOINT ["npm", "run", "start"]
+ENTRYPOINT ["npm", "run", "start:docker"]
