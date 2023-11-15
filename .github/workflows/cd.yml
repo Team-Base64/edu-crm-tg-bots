@@ -7,7 +7,7 @@ env:
   IMAGE: "ghcr.io/team-base64/edu-crm-tg-bots-app"
   CONTAINER: "tg"
   SQL_SRC: "tg-bots-sql"
-  DATA_FILE: "tg-bots-data"
+  DATA_FILE: "*-data"
   CONTAINER_DB: "tgdb"
 
 permissions:
