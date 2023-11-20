@@ -44,41 +44,8 @@ jobs:
           script_stop: true
           script: |
             cd ${{ secrets.TARGET_DOCKER_COMPOSE }}
-            echo '${{ secrets.TG_BOTS_ENV }}' > ${{ vars.ENV_FILE_TG_BOTS }}
-            sed -i '/DRONE_SSH_PREV_COMMAND_EXIT_CODE/d' ${{ vars.ENV_FILE_TG_BOTS }}
             docker compose stop
             docker compose pull ${{ env.CONTAINER }}
             docker compose create ${{ env.CONTAINER }}
-            docker compose start
-            docker system prune -af --volumes
-  database:
-    if: contains(github.event.head_commit.message, '[DB]')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: |
-          echo "${{ secrets.TG_BOTS_TOKENS_SQL }}" > ${{ env.SQL_SRC }}/3.populate.sql
-      - uses: easingthemes/ssh-deploy@main
-        with:
-          REMOTE_HOST: ${{ secrets.HOST }}
-          REMOTE_USER: ${{ secrets.USERNAME }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
-          ARGS: "-rlzav --delete"
-          SOURCE: ${{ env.SQL_SRC }}
-          TARGET: ${{ secrets.TARGET_DOCKER_COMPOSE }}
-      - uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          script_stop: true
-          script: |
-            cd ${{ secrets.TARGET_DOCKER_COMPOSE }}
-            echo '${{ secrets.TG_BOTS_ENV }}' > ${{ vars.ENV_FILE_TG_BOTS }}
-            sed -i '/DRONE_SSH_PREV_COMMAND_EXIT_CODE/d' ${{ vars.ENV_FILE_TG_BOTS }}
-            sudo rm -rf ${{ env.DATA_FILE }}
-            docker compose stop
-            docker compose pull ${{ env.CONTAINER_DB }}
-            docker compose create ${{ env.CONTAINER_DB }}
             docker compose start
             docker system prune -af --volumes
