@@ -60,6 +60,7 @@ message CreateStudentRequest {
     string name = 1;
     string type = 2; // TG VK
     string avatarURL = 3;
+    int32 classID = 4;
 }
 
 message CreateStudentResponse {

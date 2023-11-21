@@ -22,6 +22,7 @@ type createWebChatFunType = (
 ) => Promise<{ chatid: number }>;
 type registerWeb = (
     name: string,
+    classid: number,
     avatar: string,
 ) => Promise<{ studentid: number }>;
 
@@ -113,7 +114,9 @@ export default class MasterBot {
                     const registerWebResponse = await this.registerWeb(
                         (ctx.message.from.first_name ??
                             ctx.message.from.username) +
+                            ' ' +
                             (ctx.message.from.last_name ?? ''),
+                        classid,
                         '',
                     ).catch((error) => {
                         logger.error('registerWeb, result: ' + error);
@@ -122,31 +125,40 @@ export default class MasterBot {
 
                     studentid = registerWebResponse?.studentid;
 
-                    const createChatWebResponse = await this.createChatWeb(
-                        studentid,
-                        classid,
-                    ).catch((error) => {
-                        logger.error('createChatWeb, result: ' + error);
-                        return error;
-                    });
+                    if (studentid != -1) {
+                        const createChatWebResponse = await this.createChatWeb(
+                            studentid,
+                            classid,
+                        ).catch((error) => {
+                            logger.error('createChatWeb, result: ' + error);
+                            return error;
+                        });
 
-                    chatid = createChatWebResponse?.chatid;
+                        chatid = createChatWebResponse?.chatid;
 
-                    slaveBotLink = await this.#getNewSlaveBot(
-                        chatid,
-                        ctx.message.from.id,
-                        studentid,
-                        classid,
-                    ).catch((error) => {
-                        logger.warn(error.message);
-                        ctx.reply(
-                            'К сожалению Вам сейчас недоступно создание бота. ' +
-                                'Отвяжите активный бот c помощью */help* и попробуйте снова',
-                            { parse_mode: 'Markdown' },
+                        slaveBotLink = await this.#getNewSlaveBot(
+                            chatid,
+                            ctx.message.from.id,
+                            studentid,
+                            classid,
+                        ).catch((error) => {
+                            logger.warn(error.message);
+                            ctx.reply(
+                                'К сожалению Вам сейчас недоступно создание бота. ' +
+                                    'Отвяжите активный бот c помощью */help* и попробуйте снова',
+                                { parse_mode: 'Markdown' },
+                            );
+                            return '';
+                        });
+                        logger.trace('new, slaveBotLink: ' + slaveBotLink);
+                    } else {
+                        logger.info("bot.on(['text']: error create student");
+                        ctx.reply('Ошибка сервера. ' + 'Попробуйте еще раз', {
+                            parse_mode: 'Markdown',
+                        }).catch((reason: string) =>
+                            logger.fatal("bot.on(['text'] error: " + reason),
                         );
-                        return '';
-                    });
-                    logger.trace('new, slaveBotLink: ' + slaveBotLink);
+                    }
                 } else {
                     slaveBotLink = await dbInstance.getExistingSlaveBot(
                         chatid,

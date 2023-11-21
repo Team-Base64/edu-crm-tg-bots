@@ -76,13 +76,14 @@ export class NetMasterBot {
      *
      * @returns studentid
      * */
-    register(name: string, avatar: string) {
+    register(name: string, classid: number, avatar: string) {
         const tg = 'tg';
         const request = new messages.CreateStudentRequest();
         request.setName(name);
         request.setType(tg);
         request.setAvatarurl(avatar);
-        logger.info('register req ' + name + ' ' + avatar);
+        request.setClassid(classid);
+        logger.info('register req ' + name + ' ' + avatar + ' ' + classid);
         return new Promise<registerWebReturnType>((resolve, reject) => {
             client.createStudent(
                 request,
