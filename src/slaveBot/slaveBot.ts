@@ -21,9 +21,7 @@ export type HomeworkData = {
     attachmenturlsList: Array<string>;
 };
 
-type getHWsFunType = (
-    classid: number,
-) => Promise<{ array: Array<HomeworkData> }>;
+type getHWsFunType = (classid: number) => Promise<{ hws: Array<HomeworkData> }>;
 
 export type getHWsReturnType = Awaited<ReturnType<getHWsFunType>>;
 
@@ -77,11 +75,9 @@ export default class SlaveBots {
             bot.telegram.setMyCommands([
                 //{ command: 'help', description: 'Developing...' },
                 { command: 'hw', description: 'Send your solution' },
-                //{ command: 'echo', description: 'Echo' },
             ]);
-
             bot.command('hw', this.#onHWCommand.bind(this));
-            bot.command('echo', (ctx: Context) => ctx.reply('Hello'));
+            //bot.command('echo', (ctx: Context) => ctx.reply('Hello'));
 
             //bot.on(['text'], this.#onTextMessage.bind(this));
             bot.on(['photo'], this.#onPhotoAttachmentSend.bind(this));
@@ -273,15 +269,46 @@ export default class SlaveBots {
                 const classid =
                     await dbInstance.getSlaveBotClassIdByChatId(chatid);
                 if (classid) {
-                    const hwList = await this.HWCommand(classid).catch(
+                    const HWCommandResp = await this.HWCommand(classid).catch(
                         (error) => {
                             logger.error('onHWCommand, result: ' + error);
                             return error;
                         },
                     );
-
-                    logger.debug('slave, #onHWCommand, classid: ' + classid);
-                    logger.debug('slave, #onHWCommand, hwList: ' + hwList);
+                    logger.debug(
+                        'slave, #onHWCommand, HWCommandResp: ' + HWCommandResp,
+                    );
+                    const hwList: Array<HomeworkData> = HWCommandResp?.hws;
+                    // logger.debug('slave, #onHWCommand, classid: ' + classid);
+                    // logger.debug('slave, #onHWCommand, hwList: ' + hwList);
+                    // logger.debug(
+                    //     'slave, #onHWCommand, hwListSize: ' + hwList.length,
+                    // );
+                    // logger.debug(
+                    //     'slave, #onHWCommand, hwList[0]: ' +
+                    //         hwList[0] +
+                    //         hwList[0].homeworkid +
+                    //         hwList[0].title +
+                    //         hwList[0].description +
+                    //         hwList[0].attachmenturlsList,
+                    // );
+                    let textMes = 'Список домашних заданий: \n';
+                    hwList.forEach((elem: HomeworkData, index: number) => {
+                        textMes +=
+                            index +
+                            '. ' +
+                            elem.title +
+                            '\n' +
+                            elem.description +
+                            '\n\n';
+                    });
+                    textMes +=
+                        'Введите номер задания, для которого хотите  отправить решение: ';
+                    ctx.reply(textMes).catch((error) =>
+                        logger.error(
+                            '#onHWCommand, err send message: ' + error,
+                        ),
+                    );
                 } else {
                     ctx.reply('Возникла ошибка, попробуйте позже').catch(
                         (error) =>

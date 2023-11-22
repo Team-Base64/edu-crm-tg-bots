@@ -65,25 +65,50 @@ export default class NetSlaveBot {
         const request = new messages.GetHomeworksRequest();
         request.setClassid(classid);
         return new Promise<getHWsReturnType>((resolve, reject) => {
-            client.getHomeworks(
-                request,
-                (err: string, response: { array: Array<HomeworkData> }) => {
-                    // const hw: HomeworkData = {
-                    //     homeworkid: 1,
-                    //     title: '',
-                    //     description: '',
-                    //     attachmenturlsList: [],
-                    // };
-                    // const hws = [hw];
-                    if (err) {
-                        logger.error('Error:  ', err);
-                        return reject(response);
-                    }
-                    logger.info('HWCommand resp ' + response);
-                    //const chatid = Number(response.array[0]);
-                    return resolve(response);
-                },
-            );
+            client.getHomeworks(request, (err: string, response: any) => {
+                //logger.info(
+                //    'HWCommand response ' + response[0] + '!!!' + response[1],
+                //);
+                //logger.info('HWCommand response.array[0] ' + response[0]);
+                //const hws: Array<HomeworkData> = [];
+                if (err) {
+                    logger.error('Error:  ', err);
+                    return reject({ hws: [] });
+                }
+                const hws: HomeworkData[] = response
+                    .getHomeworksList()
+                    .map((hw: any): HomeworkData => {
+                        return {
+                            homeworkid: hw.getHomeworkid(),
+                            title: hw.getTitle(),
+                            description: hw.getDescription(),
+                            attachmenturlsList: hw.getAttachmenturlsList(),
+                        };
+                    });
+                logger.info('HWCommand hws[0] ' + hws[0].title);
+                // const respArray = response.array[0].toString().split(',');
+
+                // if (respArray.length == 0) {
+                //     logger.info('Empty hws list:  ', err);
+                //     return resolve({ hws });
+                // }
+
+                // for (let i = 0; i < respArray.length; i += 4) {
+                //     const hw: HomeworkData = {
+                //         homeworkid: Number(respArray[i]),
+                //         title: respArray[i + 1],
+                //         description: respArray[i + 2],
+                //         attachmenturlsList: [respArray[i + 3]],
+                //     };
+                //     hws.push(hw);
+                // }
+
+                //logger.info('HWCommand resp ' + respArray);
+                //logger.info('HWCommand resp array len' + respArray.length);
+                //logger.info('HWCommand hw0 ' + hws[0].title);
+
+                return resolve({ hws });
+            });
         });
     }
 
