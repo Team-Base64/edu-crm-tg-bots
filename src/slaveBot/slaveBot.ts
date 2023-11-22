@@ -77,7 +77,6 @@ export default class SlaveBots {
                 { command: 'hw', description: 'Send your solution' },
             ]);
             bot.command('hw', this.#onHWCommand.bind(this));
-            //bot.command('echo', (ctx: Context) => ctx.reply('Hello'));
 
             //bot.on(['text'], this.#onTextMessage.bind(this));
             bot.on(['photo'], this.#onPhotoAttachmentSend.bind(this));
@@ -275,23 +274,8 @@ export default class SlaveBots {
                             return error;
                         },
                     );
-                    logger.debug(
-                        'slave, #onHWCommand, HWCommandResp: ' + HWCommandResp,
-                    );
                     const hwList: Array<HomeworkData> = HWCommandResp?.hws;
-                    // logger.debug('slave, #onHWCommand, classid: ' + classid);
-                    // logger.debug('slave, #onHWCommand, hwList: ' + hwList);
-                    // logger.debug(
-                    //     'slave, #onHWCommand, hwListSize: ' + hwList.length,
-                    // );
-                    // logger.debug(
-                    //     'slave, #onHWCommand, hwList[0]: ' +
-                    //         hwList[0] +
-                    //         hwList[0].homeworkid +
-                    //         hwList[0].title +
-                    //         hwList[0].description +
-                    //         hwList[0].attachmenturlsList,
-                    // );
+
                     let textMes = 'Список домашних заданий: \n';
                     hwList.forEach((elem: HomeworkData, index: number) => {
                         textMes +=
@@ -309,6 +293,7 @@ export default class SlaveBots {
                             '#onHWCommand, err send message: ' + error,
                         ),
                     );
+                    // тут надо написать прием сообщения с числом и потом сообщения с аттачем
                 } else {
                     ctx.reply('Возникла ошибка, попробуйте позже').catch(
                         (error) =>
