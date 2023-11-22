@@ -1,7 +1,11 @@
 const messages = require('../grpc/proto/model_pb');
 
 import { ProtoAttachMessage, ProtoMessage } from '../../types/interfaces';
-import SlaveBots, { SendMessageTo } from './slaveBot';
+import SlaveBots, {
+    SendMessageTo,
+    getHWsReturnType,
+    HomeworkData,
+} from './slaveBot';
 import { logger } from '../utils/logger';
 import client from '../grpc/client';
 
@@ -14,6 +18,7 @@ export default class NetSlaveBot {
         this.bots = new SlaveBots(
             this.sendMessageToClient,
             this.sendMessageWithAttachToClient,
+            this.HWCommand,
         );
     }
 
@@ -53,6 +58,33 @@ export default class NetSlaveBot {
                 `sendMessageToClient error, no such chat id = ${message.chatid}`,
             );
         }
+    }
+
+    HWCommand(classid: number) {
+        logger.info(`HWCommand: classid: ${classid}`);
+        const request = new messages.GetHomeworksRequest();
+        request.setClassid(classid);
+        return new Promise<getHWsReturnType>((resolve, reject) => {
+            client.getHomeworks(
+                request,
+                (err: string, response: { array: Array<HomeworkData> }) => {
+                    // const hw: HomeworkData = {
+                    //     homeworkid: 1,
+                    //     title: '',
+                    //     description: '',
+                    //     attachmenturlsList: [],
+                    // };
+                    // const hws = [hw];
+                    if (err) {
+                        logger.error('Error:  ', err);
+                        return reject(response);
+                    }
+                    logger.info('HWCommand resp ' + response);
+                    //const chatid = Number(response.array[0]);
+                    return resolve(response);
+                },
+            );
+        });
     }
 
     sendMessageWithAttachToClient(message: ProtoAttachMessage) {

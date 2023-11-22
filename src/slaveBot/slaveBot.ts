@@ -14,10 +14,24 @@ const mime = require('mime');
 
 export type SendMessageTo = { botToken: string; telegramChatID: number };
 
+export type HomeworkData = {
+    homeworkid: number;
+    title: string;
+    description: string;
+    attachmenturlsList: Array<string>;
+};
+
+type getHWsFunType = (
+    classid: number,
+) => Promise<{ array: Array<HomeworkData> }>;
+
+export type getHWsReturnType = Awaited<ReturnType<getHWsFunType>>;
+
 export default class SlaveBots {
     bots;
     sendMessageToClient;
     sendMessageWithAttachToClient;
+    HWCommand;
 
     constructor(
         sendMessageToClient: (
@@ -25,10 +39,12 @@ export default class SlaveBots {
             sendMessageTo: SendMessageTo,
         ) => void,
         sendMessageWithAttachToClient: (message: ProtoAttachMessage) => void,
+        HWCommand: getHWsFunType,
     ) {
         this.bots = new Map<string, typeof Telegraf>();
         this.sendMessageToClient = sendMessageToClient;
         this.sendMessageWithAttachToClient = sendMessageWithAttachToClient;
+        this.HWCommand = HWCommand;
 
         this.createBots()
             .then(() => {
@@ -58,7 +74,16 @@ export default class SlaveBots {
 
             bot.help(this.#onHelpCommand);
 
-            bot.on(['text'], this.#onTextMessage.bind(this));
+            bot.telegram.setMyCommands([
+                //{ command: 'help', description: 'Developing...' },
+                { command: 'hw', description: 'Send your solution' },
+                //{ command: 'echo', description: 'Echo' },
+            ]);
+
+            bot.command('hw', this.#onHWCommand.bind(this));
+            bot.command('echo', (ctx: Context) => ctx.reply('Hello'));
+
+            //bot.on(['text'], this.#onTextMessage.bind(this));
             bot.on(['photo'], this.#onPhotoAttachmentSend.bind(this));
             bot.on(['document'], this.#onFileAttachmentSend.bind(this));
         });
@@ -130,44 +155,44 @@ export default class SlaveBots {
         );
     }
 
-    async #onTextMessage(ctx: updateContext) {
-        if (ctx.message) {
-            const chatid = await dbInstance.getSlaveBotChatIdByUserIdAndToken(
-                ctx.message.chat.id,
-                ctx.telegram.token,
-            );
+    // async #onTextMessage(ctx: updateContext) {
+    //     if (ctx.message) {
+    //         const chatid = await dbInstance.getSlaveBotChatIdByUserIdAndToken(
+    //             ctx.message.chat.id,
+    //             ctx.telegram.token,
+    //         );
 
-            if (chatid) {
-                const sendMessageTo =
-                    await dbInstance.getSlaveBotTokenAndUserIdByChatId(chatid);
-                if (sendMessageTo) {
-                    this.sendMessageToClient(
-                        {
-                            chatid,
-                            text: ctx.message.text,
-                        },
-                        sendMessageTo,
-                    );
-                    logger.debug(
-                        'slave, #onTextMessage, text: ' + ctx.message.text,
-                    );
-                } else {
-                    ctx.reply('Возникла ошибка, попробуйте позже').catch(
-                        (error) =>
-                            logger.error(
-                                '#onTextMessage, no sendMessageTo: ' + error,
-                            ),
-                    );
-                }
-            } else {
-                ctx.reply('Возникла ошибка, попробуйте позже').catch((error) =>
-                    logger.error('#onTextMessage, no chatid: ' + error),
-                );
-            }
-        } else {
-            logger.warn("bot.on(['text']: no message");
-        }
-    }
+    //         if (chatid) {
+    //             const sendMessageTo =
+    //                 await dbInstance.getSlaveBotTokenAndUserIdByChatId(chatid);
+    //             if (sendMessageTo) {
+    //                 this.sendMessageToClient(
+    //                     {
+    //                         chatid,
+    //                         text: ctx.message.text,
+    //                     },
+    //                     sendMessageTo,
+    //                 );
+    //                 logger.debug(
+    //                     'slave, #onTextMessage, text: ' + ctx.message.text,
+    //                 );
+    //             } else {
+    //                 ctx.reply('Возникла ошибка, попробуйте позже').catch(
+    //                     (error) =>
+    //                         logger.error(
+    //                             '#onTextMessage, no sendMessageTo: ' + error,
+    //                         ),
+    //                 );
+    //             }
+    //         } else {
+    //             ctx.reply('Возникла ошибка, попробуйте позже').catch((error) =>
+    //                 logger.error('#onTextMessage, no chatid: ' + error),
+    //             );
+    //         }
+    //     } else {
+    //         logger.warn("bot.on(['text']: no message");
+    //     }
+    // }
 
     async #onPhotoAttachmentSend(ctx: updateContext) {
         if (ctx.message && ctx.message.photo) {
@@ -235,6 +260,41 @@ export default class SlaveBots {
             }
         } else {
             logger.warn("bot.on(['text']: no message");
+        }
+    }
+
+    async #onHWCommand(ctx: updateContext) {
+        if (ctx.message) {
+            const chatid = await dbInstance.getSlaveBotChatIdByUserIdAndToken(
+                ctx.message.chat.id,
+                ctx.telegram.token,
+            );
+            if (chatid) {
+                const classid =
+                    await dbInstance.getSlaveBotClassIdByChatId(chatid);
+                if (classid) {
+                    const hwList = await this.HWCommand(classid).catch(
+                        (error) => {
+                            logger.error('onHWCommand, result: ' + error);
+                            return error;
+                        },
+                    );
+
+                    logger.debug('slave, #onHWCommand, classid: ' + classid);
+                    logger.debug('slave, #onHWCommand, hwList: ' + hwList);
+                } else {
+                    ctx.reply('Возникла ошибка, попробуйте позже').catch(
+                        (error) =>
+                            logger.error('#onHWCommand, no classid: ' + error),
+                    );
+                }
+            } else {
+                ctx.reply('Возникла ошибка, попробуйте позже').catch((error) =>
+                    logger.error('#onHWCommand, no chatid: ' + error),
+                );
+            }
+        } else {
+            logger.warn('bot #onHWCommand: no message');
         }
     }
 }

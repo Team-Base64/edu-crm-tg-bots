@@ -234,6 +234,25 @@ export class Store {
             });
     }
 
+    async getSlaveBotClassIdByChatId(chatid: number) {
+        return this.#db
+            .query(
+                `select class_id
+                 from users where chat_id = $1;`,
+                [chatid],
+            )
+            .then((data) => {
+                if (!data.rows.length) {
+                    return null;
+                }
+                return data.rows[0].class_id;
+            })
+            .catch((error) => {
+                postgresLogger.error('getSlaveBotClassIdByChatId: ' + error);
+                return undefined;
+            });
+    }
+
     async addUser(
         chatid: number,
         userid: number,
