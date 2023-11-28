@@ -1,11 +1,10 @@
-const grpc = require('@grpc/grpc-js');
-const services = require('./proto/model_grpc_pb');
-require('dotenv').config();
+import {credentials} from '@grpc/grpc-js';
+import {BotChatClient} from './proto/model_grpc_pb';
+import { CLIENT_HOST_TG_BOT } from '../config/envs';
 
-const client = new services.BotChatClient(
-    //process.env.CLIENT_HOST_TG_BOT,
-    `host.docker.internal:8082`,
-    grpc.credentials.createInsecure(),
+const client = new BotChatClient(
+    CLIENT_HOST_TG_BOT,
+    credentials.createInsecure(),
 );
 
 export default client;

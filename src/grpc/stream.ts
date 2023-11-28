@@ -1,9 +1,9 @@
-import { logger } from '../utils/logger';
 import {
     dbInstance,
     netSlaveBotInstance,
     streamReconnectTimeout,
 } from '../index';
+import { logger } from '../utils/logger';
 import client from './client';
 
 class GRPCstream {
@@ -14,16 +14,8 @@ class GRPCstream {
     }
 
     connect() {
-        this.#stream = client.startChatTG(
-            (error: string, newsStatus: { success: string }) => {
-                if (error) {
-                    console.error(error);
-                }
-                console.log('Stream success: ', newsStatus.success);
-                client.close();
-            },
-        );
-        this.#stream.on('data', (response: { array: Array<string> }) => {
+        this.#stream = client.startChatTG();
+        this.#stream.on('data', (response: { array: Array<string>; }) => {
             console.log('Message from backend: ', {
                 text: response.array[1],
                 chatID: response.array[0],
@@ -35,17 +27,17 @@ class GRPCstream {
                 .then((sendMessageTo) => {
                     return sendMessageTo
                         ? netSlaveBotInstance.sendMessageFromClient(
-                              {
-                                  chatid,
-                                  text: response.array[1],
-                                  fileLink: response.array[2][0],
-                                  mimetype: '',
-                              },
-                              sendMessageTo,
-                          )
+                            {
+                                chatid,
+                                text: response.array[1],
+                                fileLink: response.array[2][0],
+                                mimetype: '',
+                            },
+                            sendMessageTo,
+                        )
                         : new Error(
-                              "this.#stream.on('data'),  no sendMessageTo: ",
-                          );
+                            "this.#stream.on('data'),  no sendMessageTo: ",
+                        );
                 })
                 .catch((error) => logger.error(error));
         });

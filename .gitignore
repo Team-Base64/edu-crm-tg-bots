@@ -2,8 +2,8 @@
 .vs
 .idea
 node_modules
-model_grpc_pb.js
-model_pb.js
+model_grpc_pb.*
+model_pb.*
 tmp
 .env
 3.populate.sql

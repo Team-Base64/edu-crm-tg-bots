@@ -4,14 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "export $(xargs <.env) && npm run protogen && npm run run",
-    "start:dev": "export $(xargs <.env) && npm run protogen && npm run dev",
-    "start:docker": "npm run protogen && npm run run",
+    "start": "export $(xargs <.env) && npm run jsgen && npm run run",
+    "start:dev": "export $(xargs <.env) && npm run jsgen && npm run dev",
+    "start:docker": "npm run jsgen && npm run run",
     "dev": "nodemon src/index.ts",
     "run": "npx ts-node src/index.ts",
     "lint": "npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
-    "protogen": "npx grpc_tools_node_protoc --js_out=import_style=commonjs,binary:. --grpc_out=grpc_js:. src/grpc/proto/model.proto"
+    "jsgen": "npx grpc_tools_node_protoc --js_out=import_style=commonjs,binary:. --grpc_out=grpc_js:. src/grpc/proto/model.proto",
+    "tsgen": "npx grpc_tools_node_protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --ts_out=grpc_js:./src/grpc/proto -I ./src/grpc/proto src/grpc/proto/model.proto",
+    "protogen": "npm run jsbuild && npm run tsbuild"
   },
   "keywords": [],
   "author": "",
@@ -29,6 +31,7 @@
   },
   "devDependencies": {
     "@telegraf/types": "^6.9.1",
+    "@types/mime": "^3.0.4",
     "@types/node": "^18.11.10",
     "@typescript-eslint/eslint-plugin": "^6.9.1",
     "@typescript-eslint/parser": "^6.9.1",

@@ -1,6 +1,6 @@
 import { Client, ClientConfig } from 'pg';
-import { logger } from '../utils/logger';
 import { gracefulStop } from '../utils/gracefullStop';
+import { logger } from '../utils/logger';
 
 const postgresLogger = logger.child({ class: 'PostgresStore' });
 
@@ -226,7 +226,7 @@ export class Store {
                 if (!data.rows.length) {
                     return null;
                 }
-                return data.rows[0].chat_id;
+                return data.rows[0].chat_id as number;
             })
             .catch((error) => {
                 postgresLogger.error('getSlaveBotChatIdByUserId: ' + error);
@@ -245,7 +245,7 @@ export class Store {
                 if (!data.rows.length) {
                     return null;
                 }
-                return data.rows[0].class_id;
+                return data.rows[0].class_id as number;
             })
             .catch((error) => {
                 postgresLogger.error('getSlaveBotClassIdByChatId: ' + error);
@@ -295,5 +295,25 @@ export class Store {
                 postgresLogger.error('getSlaveBotChatIdByUserId: ' + error);
                 return undefined;
             });
+    }
+
+    public async getStudentIdByChatId(chatID: number) {
+        return this.#db
+            .query(
+                `select student_id
+                 from users
+                 where chat_id = $1;`,
+                [chatID])
+            .then((data) => {
+                if (!data.rows.length) {
+                    return null;
+                }
+                return data.rows[0].student_id as number;
+            })
+            .catch((error) => {
+                postgresLogger.error('getStudentIdByChatId: ' + error);
+                return undefined;
+            });
+
     }
 }

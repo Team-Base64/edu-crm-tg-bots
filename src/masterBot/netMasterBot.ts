@@ -1,11 +1,11 @@
+import client from '../grpc/client';
 import MasterBot, {
     createWebChatFunReturnType,
     isValidFunReturnType,
     registerWebReturnType,
 } from './masterBot';
-import client from '../grpc/client';
 
-const messages = require('../grpc/proto/model_pb');
+import messages from '../grpc/proto/model_pb';
 import { logger } from '../utils/logger';
 
 export class NetMasterBot {
@@ -32,7 +32,7 @@ export class NetMasterBot {
         return new Promise<isValidFunReturnType>((resolve, reject) =>
             client.validateToken(
                 request,
-                (err: string, response: { array: Array<string> }) => {
+                (err, response) => {
                     if (err) {
                         logger.error('Error:  ', err);
                         return reject({ isvalid: false, classid: -1 });
@@ -40,7 +40,7 @@ export class NetMasterBot {
                     logger.info('verifyToken resp ' + response);
                     return resolve({
                         isvalid: true,
-                        classid: Number(response.array[0]),
+                        classid: response.getClassid(),
                     });
                 },
             ),
@@ -59,13 +59,13 @@ export class NetMasterBot {
         return new Promise<createWebChatFunReturnType>((resolve, reject) => {
             client.createChat(
                 request,
-                (err: string, response: { array: Array<number> }) => {
+                (err, response) => {
                     if (err) {
                         logger.error('Error:  ', err);
                         return reject({ chatid: -1 });
                     }
-                    logger.info('createChat resp ' + response.array[0]);
-                    const chatid = Number(response.array[0]);
+                    logger.info('createChat resp ' + response.getInternalchatid());
+                    const chatid = response.getInternalchatid();
                     return resolve({ chatid });
                 },
             );
@@ -87,7 +87,7 @@ export class NetMasterBot {
         return new Promise<registerWebReturnType>((resolve, reject) => {
             client.createStudent(
                 request,
-                (err: string, response: { array: Array<number> }) => {
+                (err, response) => {
                     if (err) {
                         logger.error('Error:  ', err);
                         return reject({ studentid: -1 });
@@ -95,8 +95,8 @@ export class NetMasterBot {
                     // logger.info('register resp ' + studentid);
                     // return resolve({ studentid });
 
-                    logger.info('register resp ' + response.array[0]);
-                    const studentid = Number(response.array[0]);
+                    logger.info('register resp ' + response.getStudentid());
+                    const studentid = response.getStudentid();
                     return resolve({ studentid });
                 },
             );

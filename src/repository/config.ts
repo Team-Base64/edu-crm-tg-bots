@@ -1,12 +1,18 @@
 import { ClientConfig } from 'pg';
-require('dotenv').config();
+import {
+    POSTGRES_USER,
+    POSTGRES_HOST,
+    POSTGRES_PASSWORD,
+    POSTGRES_PORT,
+    POSTGRES_DB
+} from '../config/envs';
 
 const postgresConfig: ClientConfig = {
-    user: process.env.POSTGRES_USER,
-    host: process.env.POSTGRES_HOST,
-    password: process.env.POSTGRES_PASSWORD,
-    port: Number(process.env.POSTGRES_PORT),
-    database: process.env.POSTGRES_DB,
+    user: POSTGRES_USER,
+    host: POSTGRES_HOST,
+    password: POSTGRES_PASSWORD,
+    port: Number(POSTGRES_PORT),
+    database: POSTGRES_DB,
 };
 
 console.log('postgresConfig:', postgresConfig);

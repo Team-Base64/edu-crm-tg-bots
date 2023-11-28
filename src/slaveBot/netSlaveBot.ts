@@ -1,25 +1,22 @@
-const messages = require('../grpc/proto/model_pb');
-
-import { ProtoAttachMessage, ProtoMessage } from '../../types/interfaces';
-import SlaveBots, {
-    SendMessageTo,
-    getHWsReturnType,
-    HomeworkData,
-} from './slaveBot';
-import { logger } from '../utils/logger';
+import {
+    Homework,
+    ProtoAttachMessage,
+    ProtoMessage,
+    ProtoSolution,
+    SendMessageTo
+} from '../../types/interfaces';
 import client from '../grpc/client';
+import { logger } from '../utils/logger';
 
+import { FileUploadRequest, GetHomeworksRequest, Message, SendSolutionRequest, SolutionData } from '../grpc/proto/model_pb';
 import { streamInstance } from '../index';
+import SlaveBots, { ISlaveBotController } from './slaveBot';
 
-export default class NetSlaveBot {
+export default class NetSlaveBot implements ISlaveBotController {
     bots;
 
     constructor() {
-        this.bots = new SlaveBots(
-            this.sendMessageToClient,
-            this.sendMessageWithAttachToClient,
-            this.HWCommand,
-        );
+        this.bots = new SlaveBots(this);
     }
 
     sendMessageFromClient(
@@ -49,7 +46,7 @@ export default class NetSlaveBot {
             logger.info(
                 `sendMessageToClient: chatID: ${message.chatid}, text = ${message.text}`,
             );
-            const request = new messages.Message();
+            const request = new Message();
             request.setText(message.text);
             request.setChatid(message.chatid);
             streamInstance.self.write(request);
@@ -60,31 +57,31 @@ export default class NetSlaveBot {
         }
     }
 
-    HWCommand(classid: number) {
-        logger.info(`HWCommand: classid: ${classid}`);
-        const request = new messages.GetHomeworksRequest();
-        request.setClassid(classid);
-        return new Promise<getHWsReturnType>((resolve, reject) => {
-            client.getHomeworks(request, (err: string, response: any) => {
-                if (err) {
-                    logger.error('Error:  ', err);
-                    return reject({ hws: [] });
-                }
-                const hws: HomeworkData[] = response
-                    .getHomeworksList()
-                    .map((hw: any): HomeworkData => {
-                        return {
-                            homeworkid: hw.getHomeworkid(),
-                            title: hw.getTitle(),
-                            description: hw.getDescription(),
-                            attachmenturlsList: hw.getAttachmenturlsList(),
-                        };
-                    });
-                logger.info('HWCommand hws[0].title ' + hws[0].title);
-
-                return resolve({ hws });
+    async getHomeworksInClass(classid: number) {
+        logger.info(`getHomeworksInClass: classid: ${classid}`);
+        const request = new GetHomeworksRequest()
+            .setClassid(classid);
+        return new Promise<Homework[]>(
+            (resolve, reject) => {
+                client.getHomeworks(request, (err, response) => {
+                    if (err) {
+                        logger.error('getHomeworksInClass: ', err);
+                        return reject([]);
+                    }
+                    const hws = response
+                        .getHomeworksList()
+                        .map((hw) => {
+                            return {
+                                homeworkid: hw.getHomeworkid(),
+                                title: hw.getTitle(),
+                                description: hw.getDescription(),
+                                attachmenturlsList: hw.getAttachmenturlsList(),
+                            };
+                        });
+                    logger.info('getHomeworksInClass hws: ' + hws.length);
+                    return resolve(hws);
+                });
             });
-        });
     }
 
     sendMessageWithAttachToClient(message: ProtoAttachMessage) {
@@ -92,26 +89,26 @@ export default class NetSlaveBot {
             logger.info(`sendMessageToClient: chatID: ${message.chatid}, text = ${message.text},
              mimeType: ${message.mimetype}, fileLink: ${message.fileLink}`);
 
-            const request = new messages.FileUploadRequest();
+            const request = new FileUploadRequest();
             request.setMimetype(message.mimetype);
             request.setFileurl(message.fileLink);
             client.uploadFile(
                 request,
-                (error: string, response: { array: Array<string> }) => {
+                (error, response) => {
                     if (error) {
                         logger.error(error);
                     } else {
                         logger.info(
-                            `response inner file url: ${response.array[0]}`,
+                            `response inner file url: ${response.getInternalfileurl()}`,
                         );
-                        const request2 = new messages.Message();
+                        const request2 = new Message();
                         request2.setText(message.text);
                         request2.setChatid(message.chatid);
                         // нужно ставить тип сообщения
                         //request2.setMessagetype('message');
-                        request2.setAttachmenturlsList([response.array[0]]);
+                        request2.setAttachmenturlsList([response.getInternalfileurl()]);
                         // если это домашка, поставить id домашки
-                        //request2.setHomeworkid(-1);
+                        // request2.setHomeworkid(-1);
                         streamInstance.self.write(request2);
                     }
                 },
@@ -122,4 +119,42 @@ export default class NetSlaveBot {
             );
         }
     }
-}
+
+    sendSolutionToClient(message: ProtoSolution) {
+        logger.info(`sendSolutionToClient: homeworkID: ${message.homeworkID}, studentID = ${message.studentID}`);
+
+        const request = new FileUploadRequest();
+        // TODO
+        request.setMimetype(message.data.attachList[0].mimetype);
+        request.setFileurl(message.data.attachList[0].fileLink);
+        client.uploadFile(
+            request,
+            (error, response) => {
+                if (error) {
+                    logger.error(error);
+                } else {
+                    logger.info(
+                        `response inner file url: ${response.getInternalfileurl()}`,
+                    );
+                    const request2 = new SendSolutionRequest();
+                    request2.setHomeworkid(message.homeworkID);
+                    request2.setStudentid(message.studentID);
+                    const solData = new SolutionData();
+                    solData.setText(message.data.text);
+                    solData.setAttachmenturlsList([response.getInternalfileurl()]);
+                    request2.setSolution(solData);
+                    client.sendSolution(
+                        request2,
+                        (error) => {
+                            if (error) {
+                                logger.error(error);
+                            } else {
+                                logger.info('succes add solution');
+                            }
+                        }
+                    );
+                }
+            },
+        );
+    }
+};
