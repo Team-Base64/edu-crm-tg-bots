@@ -187,7 +187,7 @@ export default class SlaveBots implements IHomeworkSceneController {
         await ctx.replyWithMarkdownV2(
             'Добро пожаловать в TG бота сервиса EDUCRM\\!\n' +
             'Важные замечания:\n' +
-            '\\- В нашем сервисе можно отправлять только *картинки* и *pdf*'
+            '\\- В нашем сервисе можно пожаловать только *картинки* и *pdf*'
         );
     }
 

@@ -120,7 +120,9 @@ export class HomeworkScene {
           rawAttachList: []
         };
         await ctx.editMessageText(
-          'Всё, что ты отправишь, будет добавлено в твоё решение\\. Как закончешь, нажми на кнопку *Отправить 📦*\\. Записываю \\.\\.\\.',
+          'Всё, что ты отправишь, будет добавлено в твоё решение\\. Как закончешь, нажми на кнопку *Отправить 📦*\\.\n' +
+          'Обязательно дождишь сообжения `Сохранено`, чтобы быть уверенным, что твоё сообщение добавится в решение\\.\n' +
+          'Записываю \\.\\.\\.',
           {
             parse_mode: "MarkdownV2",
             ...Markup.inlineKeyboard([
@@ -170,6 +172,7 @@ export class HomeworkScene {
             mimeType: ctx.message.document.mime_type,
           }
         );
+        await ctx.reply('Сохранено');
       }
     );
     handler.on(
@@ -189,12 +192,14 @@ export class HomeworkScene {
             fileID: fileID,
           }
         );
+        await ctx.reply('Сохранено');
       }
     );
     handler.on(
       message('text'),
       async ctx => {
         ctx.wizard.state.curretSolution.text += ctx.message.text + '\n';
+        await ctx.reply('Сохранено');
       }
     );
     handler.action(
@@ -214,7 +219,7 @@ export class HomeworkScene {
         if (!res) {
           return this.replyExitWithError(ctx);
         }
-        await ctx.reply('Решение отправлено!',);
+        await ctx.reply('Решение отправлено!');
         return this.replyExit(ctx);
       }
     );
