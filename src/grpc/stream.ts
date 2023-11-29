@@ -15,7 +15,7 @@ class GRPCstream {
 
     connect() {
         this.#stream = client.startChatTG();
-        this.#stream.on('data', (response: { array: Array<string>; }) => {
+        this.#stream.on('data', (response: { array: Array<any>; }) => {
             console.log('Message from backend: ', {
                 text: response.array[1],
                 chatID: response.array[0],
@@ -29,9 +29,8 @@ class GRPCstream {
                         ? netSlaveBotInstance.sendMessageFromClient(
                             {
                                 chatid,
-                                text: response.array[1],
-                                fileLink: response.array[2][0],
-                                mimetype: '',
+                                text: response.array[1] ?? '',
+                                attachList: response.array[2]
                             },
                             sendMessageTo,
                         )

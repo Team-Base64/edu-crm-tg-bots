@@ -4,9 +4,10 @@ import { message } from "telegraf/filters";
 import {
     CustomContext,
     Homework,
-    ProtoAttachMessage,
-    ProtoMessage,
+    ProtoMessageBase,
+    ProtoMessageSend,
     ProtoSolution,
+    RawFileType,
     SendMessageTo
 } from '../../types/interfaces';
 import { dbInstance } from '../index';
@@ -15,11 +16,21 @@ import { changeHttpsToHttp } from '../utils/url';
 import { HomeworkScene, IHomeworkSceneController, solutionPayloadType } from './scenes';
 
 export interface ISlaveBotController {
-    sendMessageToClient: (message: ProtoMessage, sendMessageTo: SendMessageTo) => void;
-    sendMessageWithAttachToClient: (message: ProtoAttachMessage) => void;
+    sendMessageToClient: (message: ProtoMessageBase, sendMessageTo: SendMessageTo) => boolean;
+    sendMessageWithAttachToClient: (message: ProtoMessageSend) => Promise<void>;
     getHomeworksInClass: (classID: number) => Promise<Homework[]>;
-    sendSolutionToClient: (message: ProtoSolution) => void;
+    sendSolutionToClient: (message: ProtoSolution) => Promise<void>;
 }
+
+export type SendMessageData = {
+    text?: string;
+    atachList: string[];
+};
+
+type AttachType = {
+    fileLink: string;
+    mimeType: string;
+};
 
 export default class SlaveBots implements IHomeworkSceneController {
     bots = new Map<string, Telegraf<CustomContext>>();
@@ -35,7 +46,7 @@ export default class SlaveBots implements IHomeworkSceneController {
         this.createBots()
             .then(() => {
                 this.initBots();
-                this.#launchBots();
+                this.launchBots();
 
                 logger.info(`starting slave bots with ${logger.level} level.
                                 Bots count: ${this.bots.size}`);
@@ -54,7 +65,7 @@ export default class SlaveBots implements IHomeworkSceneController {
         }
     }
 
-    initBots() {
+    private initBots() {
         Array.from(this.bots.values()).forEach((bot) => {
             this.addAuthMiddleware(bot);
 
@@ -62,9 +73,13 @@ export default class SlaveBots implements IHomeworkSceneController {
             bot.use(this.sceneBuilder.initStage().middleware());
 
             bot.start(this.onStartCommand);
-            bot.help(this.#onHelpCommand);
+            bot.help(this.onHelpCommand);
 
             bot.telegram.setMyCommands([
+                {
+                    command: 'help',
+                    description: 'Подсказки по пользованию нашим сервисом'
+                },
                 {
                     command: this.sceneBuilder.scenes.homeworks.name,
                     description: this.sceneBuilder.scenes.homeworks.description
@@ -75,7 +90,12 @@ export default class SlaveBots implements IHomeworkSceneController {
             this.addTextMessageHandler(bot);
             this.addPhotoMessageHandler(bot);
             this.addDocumentMessageHandler(bot);
+
+            bot.action(/.+/, ctx => {
+                return ctx.answerCbQuery('Оу, не сейчас!');
+            });
         });
+
     }
 
     private getBot(token: string) {
@@ -88,11 +108,11 @@ export default class SlaveBots implements IHomeworkSceneController {
 
     }
 
-    #launchBots() {
+    private launchBots() {
         Array.from(this.bots.values()).forEach((bot) => {
             bot.launch().catch((error: string) => {
-                logger.error('bot.launch() error: ' + error);
-                this.#launchBots();
+                logger.error('launchBots: ' + error);
+                this.launchBots();
             });
 
             process.once('SIGINT', () => bot.stop('SIGINT'));
@@ -134,15 +154,40 @@ export default class SlaveBots implements IHomeworkSceneController {
         logger.debug('sendPhoto: ' + text);
     }
 
+    sendAttaches({ botToken, telegramChatID }: SendMessageTo, data: SendMessageData) {
+        logger.debug(`sendMedia: text - ${data.text}, attaches - ${data.atachList.length}`);
+        this.getBot(botToken).telegram.sendMediaGroup(
+            telegramChatID,
+            data.atachList.map(
+                (attach, idx) => {
+                    return {
+                        media: attach,
+                        type: 'document',
+                        caption: idx === data.atachList.length - 1 ? data.text : undefined,
+                    };;
+                }
+            )
+        ).catch((error: string) => {
+            logger.error('sendMedia: ' + error);
+            this.getBot(botToken)
+                .telegram.sendMessage(
+                    telegramChatID,
+                    'Ошибка при отправке сообщения',
+                );
+        });
+    }
+
     private async onStartCommand(ctx: CustomContext) {
         await ctx.reply(
             'Все готово! Можете начинать общаться с преподавателем.',
         ).catch((error) => logger.error('onStartCommand: ' + error));
     }
 
-    async #onHelpCommand(ctx: CustomContext) {
-        ctx.reply('still in dev...').catch((reason: string) =>
-            logger.error('bot.help error: ' + reason),
+    private async onHelpCommand(ctx: CustomContext) {
+        await ctx.replyWithMarkdownV2(
+            'Добро пожаловать в TG бота сервиса EDUCRM\\!\n' +
+            'Важные замечания:\n' +
+            '\\- В нашем сервисе можно отправлять только *картинки* и *pdf*'
         );
     }
 
@@ -152,9 +197,9 @@ export default class SlaveBots implements IHomeworkSceneController {
                 chatID: -1,
                 studentID: -1
             };
-            if (ctx.message) {
+            if (ctx.chat) {
                 const chatID = await dbInstance.getSlaveBotChatIdByUserIdAndToken(
-                    ctx.message.chat.id,
+                    ctx.chat.id,
                     ctx.telegram.token,
                 );
                 if (typeof chatID == 'number') {
@@ -225,47 +270,33 @@ export default class SlaveBots implements IHomeworkSceneController {
             message("photo"),
             async ctx => {
                 if (ctx.message && ctx.message.photo) {
-                    const fileLink = await this.getBot(ctx.telegram.token)
-                        .telegram.getFileLink(ctx.message.photo.at(-1)!.file_id) // TODO !
-                        .catch((err: string) => {
-                            logger.error('#onPhotoAttachmentSend, getFileLink: ' + err);
-                            return undefined;
-                        },
-                        );
-                    if (fileLink === undefined) {
-                        // TODO
-                        logger.error("#onPhotoAttachmentSend, get filelink broken");
-                        return;
+                    const fileID = ctx.message.photo.pop()?.file_id;
+                    if (fileID === undefined) {
+                        logger.error('addPhotoMessageHandler: fileID === undefined');
+                        return this.replyErrorMsg(ctx);
                     }
-                    console.log(ctx.telegram.token);
-                    console.log(ctx);
+                    const file = await this.prepareFileUpload(ctx.telegram.token, { fileID });
+                    if (file === undefined) {
+                        logger.error('addPhotoMessageHandler: file === undefined');
+                        return this.replyErrorMsg(ctx);
+                    }
 
-                    const chatid = await dbInstance.getSlaveBotChatIdByUserIdAndToken(
-                        ctx.message.chat.id,
-                        ctx.telegram.token,
+                    await this.controller.sendMessageWithAttachToClient({
+                        chatid: ctx.educrm.chatID,
+                        text: ctx.message.caption ?? '',
+                        file: {
+                            mimeType: file.mimeType,
+                            fileLink: changeHttpsToHttp(file.fileLink),
+                        }
+                    }).catch(
+                        () => {
+                            logger.error("addPhotoMessageHandler: sendMessageWithAttachToClient error");
+                            return this.replyErrorMsg(ctx);
+                        }
                     );
-
-                    const mimetype = mime.getType(fileLink.toString());
-                    if (mimetype === null) {
-                        // TODO
-                        logger.error("#onPhotoAttachmentSend, get filelink with error mine type");
-                        return;
-                    }
-
-                    if (chatid) {
-                        this.controller.sendMessageWithAttachToClient({
-                            chatid,
-                            text: '', // TODO ctx.message.text ?? '',
-                            mimetype: mimetype,
-                            fileLink: changeHttpsToHttp(fileLink.toString()),
-                        });
-                    } else {
-                        ctx.reply('Возникла ошибка, попробуйте позже').catch((error) =>
-                            logger.error('#onPhotoAttachmentSend, no chatid: ' + error),
-                        );
-                    }
                 } else {
-                    logger.warn("bot.on(['text']: no message");
+                    logger.error("addPhotoMessageHandler: no message or photo");
+                    return this.replyErrorMsg(ctx);
                 }
             }
         );
@@ -276,48 +307,32 @@ export default class SlaveBots implements IHomeworkSceneController {
             message("document"),
             async ctx => {
                 if (ctx.message && ctx.message.document) {
-                    logger.trace(
-                        this.getBot(ctx.telegram.token).telegram.getFile(
-                            ctx.message.document.file_id,
-                        ),
-                    );
-                    const fileLink = await this.getBot(ctx.telegram.token)
-                        .telegram.getFileLink(ctx.message.document.file_id)
-                        .catch((err: unknown) => {
-                            logger.error(err);
-                            return undefined;
-                        });
-                    if (fileLink === undefined) {
-                        // TODO
-                        logger.error("addDocumentMessageHandler, get filelink broken");
-                        return;
-                    }
-                    const chatid = await dbInstance.getSlaveBotChatIdByUserIdAndToken(
-                        ctx.message.chat.id,
-                        ctx.telegram.token,
-                    );
-
-                    const mimetype = ctx.message.document.mime_type ?? mime.getType(ctx.message.document.file_name ?? fileLink.toString());
-                    if (mimetype === null) {
-                        // TODO
-                        logger.error("addDocumentMessageHandler, get filelink with error mine type");
-                        return;
+                    const file = await this.prepareFileUpload(ctx.telegram.token, {
+                        fileID: ctx.message.document.file_id,
+                        fileName: ctx.message.document.file_name,
+                        mimeType: ctx.message.document.mime_type
+                    });
+                    if (file === undefined) {
+                        logger.error('addDocumentMessageHandler: file === undefined');
+                        return this.replyErrorMsg(ctx);
                     }
 
-                    if (chatid) {
-                        this.controller.sendMessageWithAttachToClient({
-                            chatid: chatid,
-                            text: '', // TODO with text
-                            mimetype: mimetype,
-                            fileLink: changeHttpsToHttp(fileLink.toString()),
-                        });
-                    } else {
-                        ctx.reply('Возникла ошибка, попробуйте позже').catch((error) =>
-                            logger.error('#onFileAttachmentSend, no chatid: ' + error),
-                        );
-                    }
+                    await this.controller.sendMessageWithAttachToClient({
+                        chatid: ctx.educrm.chatID,
+                        text: ctx.message.caption ?? '',
+                        file: {
+                            mimeType: file.mimeType,
+                            fileLink: changeHttpsToHttp(file.fileLink),
+                        }
+                    }).catch(
+                        () => {
+                            logger.error("addDocumentMessageHandler: sendMessageWithAttachToClient error");
+                            return this.replyErrorMsg(ctx);
+                        }
+                    );
+
                 } else {
-                    logger.warn("bot.on(['text']: no message");
+                    logger.warn("addDocumentMessageHandler: no message");
                 }
             }
         );
@@ -352,45 +367,65 @@ export default class SlaveBots implements IHomeworkSceneController {
     }
 
     async sendSolution(solution: solutionPayloadType) {
-        const fileLink = await this.getBot(solution.token)
-            .telegram.getFileLink(solution.file.fileID)
+        // const file = await this.prepareFileUpload(solution.token, {
+        //     fileID: solution.file.fileID,
+        //     fileName: solution.file.fileName,
+        //     mimeType: solution.file.mimeType
+        // });
+        // if (file === undefined) {
+        //     logger.error('addDocumentMessageHandler: file === undefined');
+        //     return false;
+        // }
+
+        const attachList: AttachType[] = [];
+        for (const rawFile of solution.files) {
+            const file = await this.prepareFileUpload(solution.token, rawFile);
+            if (file === undefined) {
+                logger.error('addDocumentMessageHandler: file === undefined');
+                continue;
+            }
+            file.fileLink = changeHttpsToHttp(file.fileLink);
+            attachList.push(file);
+        }
+        if (attachList.length !== solution.files.length) {
+            return false;
+        }
+
+        return await this.controller.sendSolutionToClient({
+            homeworkID: solution.homeworkID,
+            data: {
+                text: solution.text,
+                attachList
+            },
+            studentID: solution.studentID
+        })
+            .then(() => true)
+            .catch(() => false);
+    }
+
+    private async prepareFileUpload(token: string, file: RawFileType): Promise<AttachType | undefined> {
+        const fileLink = await this.getBot(token)
+            .telegram.getFileLink(file.fileID)
+            .then(url => url.toString())
             .catch((err: unknown) => {
-                logger.error(err);
+                logger.error('prepareFileUpload, getFileLink: ' + err);
                 return undefined;
             });
         if (fileLink === undefined) {
-            // TODO
-            logger.error("addDocumentMessageHandler, get filelink broken");
-            return false;
+            return undefined;
         }
 
-        const mimetype = solution.file.mimeType ?? mime.getType(solution.file.fileName ?? fileLink.toString());
-        if (mimetype === null) {
-            // TODO
-            logger.error("addDocumentMessageHandler, get filelink with error mine type");
-            return false;
+        const mimeType = file.mimeType ?? mime.getType(file.fileName ?? fileLink);
+        if (mimeType === null) {
+            logger.error("prepareFileUpload: mimetype === null");
+            return undefined;
         }
-
-        this.controller.sendSolutionToClient({
-            homeworkID: solution.homeworkID,
-            data: {
-                text: '', // TODO with text
-                attachList: [
-                    {
-                        mimetype: mimetype,
-                        fileLink: changeHttpsToHttp(fileLink.toString()),
-                    }
-                ]
-            },
-            studentID: solution.studentID
-        });
-
-        return true;
+        return { fileLink, mimeType };
     }
 
     private async replyErrorMsg(ctx: Context) {
         await ctx.reply(
-            'Что-то пошло не так. Попробуйте через некоторое время.',
+            'Что-то пошло не так. Попробуйте через некоторое время. /help для справки',
         );
     }
 }

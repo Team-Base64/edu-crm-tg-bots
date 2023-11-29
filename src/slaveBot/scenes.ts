@@ -1,6 +1,6 @@
 import { Composer, Markup, Scenes } from "telegraf";
 import { message } from "telegraf/filters";
-import { CustomContext, Homework } from "../../types/interfaces";
+import { CustomContext, Homework, RawFileType } from "../../types/interfaces";
 import { logger } from "../utils/logger";
 
 
@@ -11,11 +11,8 @@ export interface IHomeworkSceneController {
 
 export type solutionPayloadType = {
   token: string;
-  file: {
-    fileID: string;
-    fileName?: string;
-    mimeType?: string;
-  };
+  files: RawFileType[];
+  text: string;
   homeworkID: number;
   studentID: number;
   chatID: number;
@@ -56,7 +53,6 @@ export class HomeworkScene {
     ctx.wizard.state.waitSolution = false;
 
     ctx.wizard.state.homeworks = await this.controller.getHomeworks(ctx);
-    console.log(JSON.stringify(ctx.wizard.state.homeworks, null, 4));
     if (ctx.wizard.state.homeworks.length === 0) {
       await ctx.reply('У вас нет домашних заданий');
       return await ctx.scene.leave();
@@ -67,7 +63,9 @@ export class HomeworkScene {
         (hw) => {
           return Markup.button.callback(hw.title, 'homeworks/' + hw.homeworkid);
         }
-      ))
+      ), {
+        columns: 1
+      })
     );
     return ctx.wizard.next();
   }
@@ -94,10 +92,17 @@ export class HomeworkScene {
           Markup.inlineKeyboard([
             Markup.button.callback('Сдать решение ☑️', 'solution'),
             Markup.button.callback('Выйти 🏃', 'exit'),
-          ])
+          ], {
+            columns: 1
+          })
         );
-        // TODO добавить атачи
         return ctx.wizard.next();
+      }
+    );
+    handler.on(
+      "message",
+      async ctx => {
+        return this.replyExit(ctx);
       }
     );
 
@@ -110,11 +115,20 @@ export class HomeworkScene {
       'solution',
       async ctx => {
         ctx.wizard.state.waitSolution = true;
+        ctx.wizard.state.curretSolution ??= {
+          text: '',
+          rawAttachList: []
+        };
         await ctx.editMessageText(
-          'Жду твоё решение ...',
-          Markup.inlineKeyboard([
-            Markup.button.callback('Выйти 🏃', 'exit'),
-          ])
+          'Всё, что ты отправишь, будет добавлено в твоё решение\\. Как закончешь, нажми на кнопку *Отправить 📦*\\. Записываю \\.\\.\\.',
+          {
+            parse_mode: "MarkdownV2",
+            ...Markup.inlineKeyboard([
+              Markup.button.callback('Отправить 📦', 'send'),
+              Markup.button.callback('Выйти 🏃', 'exit'),
+            ]),
+          },
+
         );
         return ctx.wizard.next();
       }
@@ -132,6 +146,12 @@ export class HomeworkScene {
         return await ctx.scene.leave();;
       }
     );
+    handler.on(
+      "message",
+      async ctx => {
+        return this.replyExit(ctx);
+      }
+    );
     return handler;
   }
 
@@ -140,30 +160,61 @@ export class HomeworkScene {
     handler.on(
       message("document"),
       async ctx => {
-        if (!ctx.message.document) {
-          logger.error('sendSolutionStep: no message.document');
-          return this.replyExit(ctx);
+        if (ctx.message.caption) {
+          ctx.wizard.state.curretSolution.text += ctx.message.caption + '\n';
         }
-
-        const res = await this.controller.sendSolution({
-          token: ctx.telegram.token,
-          file: {
+        ctx.wizard.state.curretSolution.rawAttachList.push(
+          {
             fileID: ctx.message.document.file_id,
             fileName: ctx.message.document.file_name,
             mimeType: ctx.message.document.mime_type,
-          },
+          }
+        );
+      }
+    );
+    handler.on(
+      message("photo"),
+      async ctx => {
+        const fileID = ctx.message.photo.pop()?.file_id;
+        if (fileID === undefined) {
+          logger.error('sendSolutionStep: fileID === undefined');
+          return this.replyExitWithError(ctx);
+        }
+
+        if (ctx.message.caption) {
+          ctx.wizard.state.curretSolution.text += ctx.message.caption + '\n';
+        }
+        ctx.wizard.state.curretSolution.rawAttachList.push(
+          {
+            fileID: fileID,
+          }
+        );
+      }
+    );
+    handler.on(
+      message('text'),
+      async ctx => {
+        ctx.wizard.state.curretSolution.text += ctx.message.text + '\n';
+      }
+    );
+    handler.action(
+      'send',
+      async ctx => {
+        if (ctx.wizard.state.curretSolution.text.endsWith('\n')) {
+          ctx.wizard.state.curretSolution.text = ctx.wizard.state.curretSolution.text.slice(0, -1);
+        }
+        const res = await this.controller.sendSolution({
+          token: ctx.telegram.token,
+          files: ctx.wizard.state.curretSolution.rawAttachList,
+          text: ctx.wizard.state.curretSolution.text,
           studentID: ctx.educrm.studentID,
           homeworkID: ctx.wizard.state.targetHomeworkID,
           chatID: ctx.educrm.chatID
         });
         if (!res) {
-          await ctx.reply('Упс, что то пошло не так (╥﹏╥)');
-        } else {
-          await ctx.editMessageText(
-            'Решение отправлено!',
-            Markup.inlineKeyboard([])
-          );
+          return this.replyExitWithError(ctx);
         }
+        await ctx.reply('Решение отправлено!',);
         return this.replyExit(ctx);
       }
     );
@@ -180,14 +231,16 @@ export class HomeworkScene {
           })
           .catch(() => '');
         await ctx.answerCbQuery(evilSay);
-        await ctx.reply('Возврат к обмену сообщениями.');
-        return await ctx.scene.leave();;
+        return this.replyExit(ctx);
       }
     );
     handler.on(
       "message",
       async ctx => {
-        await ctx.replyWithMarkdownV2('В качетсве решения можно отправить *файл* или *фотографию*');
+        await ctx.replyWithMarkdownV2(
+          'В качетсве решения можно отправить *файл*, *фотографию* и *текст*\n' +
+          'Для выхода нажмите на кнопку *Выход*'
+        );
       }
     );
     return handler;
@@ -196,6 +249,11 @@ export class HomeworkScene {
   private async replyExit(ctx: CustomContext) {
     await ctx.reply('Возврат к обмену сообщениями.');
     return await ctx.scene.leave();
+  }
+
+  private async replyExitWithError(ctx: CustomContext) {
+    await ctx.reply('Упс, что то пошло не так (╥﹏╥)');
+    return this.replyExit(ctx);
   }
 
 }

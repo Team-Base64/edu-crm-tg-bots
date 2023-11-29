@@ -1,9 +1,10 @@
 import {
     Homework,
-    ProtoAttachMessage,
-    ProtoMessage,
+    ProtoMessageBase,
+    ProtoMessageRecieve,
+    ProtoMessageSend,
     ProtoSolution,
-    SendMessageTo
+    SendMessageTo,
 } from '../../types/interfaces';
 import client from '../grpc/client';
 import { logger } from '../utils/logger';
@@ -20,41 +21,30 @@ export default class NetSlaveBot implements ISlaveBotController {
     }
 
     sendMessageFromClient(
-        message: ProtoAttachMessage,
+        message: ProtoMessageRecieve,
         sendMessageTo: SendMessageTo,
     ) {
-        if (sendMessageTo) {
-            if (message.fileLink) {
-                if (message.mimetype.includes('image')) {
-                    this.bots.sendPhoto(sendMessageTo, message.fileLink);
-                } else {
-                    this.bots.sendDocument(sendMessageTo, message.fileLink);
-                }
-            }
-            if (message.text) {
-                this.bots.sendMessage(sendMessageTo, message.text);
-            }
+        if (message.attachList.length > 0) {
+            this.bots.sendAttaches(sendMessageTo, {
+                text: message.text,
+                atachList: message.attachList
+            });
+        } else if (message.text !== '') {
+            this.bots.sendMessage(sendMessageTo, message.text);
         } else {
-            logger.error(
-                `sendMessageFromClient error, no such chat id = ${message.chatid}`,
-            );
+            logger.error('sendMessageFromClient: empty message');
         }
     }
 
-    sendMessageToClient(message: ProtoMessage) {
-        if (message.chatid !== undefined) {
-            logger.info(
-                `sendMessageToClient: chatID: ${message.chatid}, text = ${message.text}`,
-            );
-            const request = new Message();
-            request.setText(message.text);
-            request.setChatid(message.chatid);
-            streamInstance.self.write(request);
-        } else {
-            logger.error(
-                `sendMessageToClient error, no such chat id = ${message.chatid}`,
-            );
-        }
+    sendMessageToClient(message: ProtoMessageBase) {
+        logger.info(
+            `sendMessageToClient: chatID: ${message.chatid}, text = ${message.text}`,
+        );
+        const request = new Message();
+        request.setText(message.text);
+        request.setChatid(message.chatid);
+        streamInstance.self.write(request);
+        return true;
     }
 
     async getHomeworksInClass(classid: number) {
@@ -84,77 +74,98 @@ export default class NetSlaveBot implements ISlaveBotController {
             });
     }
 
-    sendMessageWithAttachToClient(message: ProtoAttachMessage) {
-        if (message.chatid !== undefined) {
-            logger.info(`sendMessageToClient: chatID: ${message.chatid}, text = ${message.text},
-             mimeType: ${message.mimetype}, fileLink: ${message.fileLink}`);
+    sendMessageWithAttachToClient(message: ProtoMessageSend) {
+        logger.info(`sendMessageToClient: chatID: ${message.chatid}, text = ${message.text},
+             mimeType: ${message.file.mimeType}, fileLink: ${message.file.fileLink}`);
 
-            const request = new FileUploadRequest();
-            request.setMimetype(message.mimetype);
-            request.setFileurl(message.fileLink);
-            client.uploadFile(
-                request,
-                (error, response) => {
-                    if (error) {
-                        logger.error(error);
-                    } else {
-                        logger.info(
-                            `response inner file url: ${response.getInternalfileurl()}`,
-                        );
-                        const request2 = new Message();
-                        request2.setText(message.text);
-                        request2.setChatid(message.chatid);
-                        // нужно ставить тип сообщения
-                        //request2.setMessagetype('message');
-                        request2.setAttachmenturlsList([response.getInternalfileurl()]);
-                        // если это домашка, поставить id домашки
-                        // request2.setHomeworkid(-1);
-                        streamInstance.self.write(request2);
-                    }
-                },
-            );
-        } else {
-            logger.error(
-                `sendMessageWithAttachToClient error, no such chat id = ${message.chatid}`,
-            );
-        }
+        const request = new FileUploadRequest();
+        request.setMimetype(message.file.mimeType);
+        request.setFileurl(message.file.fileLink);
+
+        return new Promise<void>(
+            (resolve, reject) => {
+                client.uploadFile(
+                    request,
+                    (error, response) => {
+                        if (error) {
+                            logger.error("sendMessageWithAttachToClient: " + error);
+                            reject();
+                        } else {
+                            logger.info(
+                                `response inner file url: ${response.getInternalfileurl()}`,
+                            );
+                            const request2 = new Message();
+                            request2.setText(message.text);
+                            request2.setChatid(message.chatid);
+                            // нужно ставить тип сообщения
+                            //request2.setMessagetype('message');
+                            request2.setAttachmenturlsList([response.getInternalfileurl()]);
+                            // если это домашка, поставить id домашки
+                            // request2.setHomeworkid(-1);
+                            streamInstance.self.write(request2);
+                            console.log(streamInstance.self.write);
+                            resolve();
+                        }
+                    },
+                );
+            }
+        );
     }
 
     sendSolutionToClient(message: ProtoSolution) {
-        logger.info(`sendSolutionToClient: homeworkID: ${message.homeworkID}, studentID = ${message.studentID}`);
+        logger.info(`sendSolutionToClient: homeworkID = ${message.homeworkID}, studentID = ${message.studentID}`);
 
-        const request = new FileUploadRequest();
-        // TODO
-        request.setMimetype(message.data.attachList[0].mimetype);
-        request.setFileurl(message.data.attachList[0].fileLink);
-        client.uploadFile(
-            request,
-            (error, response) => {
-                if (error) {
-                    logger.error(error);
-                } else {
-                    logger.info(
-                        `response inner file url: ${response.getInternalfileurl()}`,
-                    );
-                    const request2 = new SendSolutionRequest();
-                    request2.setHomeworkid(message.homeworkID);
-                    request2.setStudentid(message.studentID);
+        const promiseAttachList = message.data.attachList.map(
+            attach => {
+                const request = new FileUploadRequest();
+                request.setMimetype(attach.mimeType);
+                request.setFileurl(attach.fileLink);
+                return new Promise<string>(
+                    (resolve, reject) => {
+                        client.uploadFile(
+                            request,
+                            (error, response) => {
+                                if (error) {
+                                    logger.error('sendSolutionToClient, uploadFile: ' + error);
+                                    reject();
+                                }
+                                logger.info(
+                                    `response inner file url: ${response.getInternalfileurl()}`,
+                                );
+                                return resolve(response.getInternalfileurl());
+                            }
+                        );
+                    }
+                );
+            }
+        );
+
+        return Promise.all(promiseAttachList)
+            .then(
+                attachList => {
+                    const request = new SendSolutionRequest();
+                    request.setHomeworkid(message.homeworkID);
+                    request.setStudentid(message.studentID);
                     const solData = new SolutionData();
                     solData.setText(message.data.text);
-                    solData.setAttachmenturlsList([response.getInternalfileurl()]);
-                    request2.setSolution(solData);
-                    client.sendSolution(
-                        request2,
-                        (error) => {
-                            if (error) {
-                                logger.error(error);
-                            } else {
-                                logger.info('succes add solution');
-                            }
+                    solData.setAttachmenturlsList(attachList);
+                    request.setSolution(solData);
+                    return new Promise<void>(
+                        (resolve, reject) => {
+                            client.sendSolution(
+                                request,
+                                (error) => {
+                                    if (error) {
+                                        logger.error('sendSolutionToClient, sendSolution: ' + error);
+                                        reject();
+                                    } else {
+                                        resolve();
+                                    }
+                                }
+                            );
                         }
                     );
                 }
-            },
-        );
+            );
     }
 };

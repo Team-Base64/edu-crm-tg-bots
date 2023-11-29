@@ -1,23 +1,32 @@
 import { Update } from '@telegraf/types';
 import { Context, Scenes } from 'telegraf';
 
-export interface ProtoMessage {
+export type SendMessageTo = {
+    botToken: string;
+    telegramChatID: number;
+};
+
+export interface ProtoMessageBase {
     chatid: number;
     text: string;
-    time?: number;
 }
 
-export interface ProtoAttachMessage extends ProtoMessage {
-    mimetype: string;
+export interface ProtoMessageRecieve extends ProtoMessageBase {
+    attachList: string[];
+}
+
+export interface ProtoAttach {
+    mimeType: string;
     fileLink: string;
+}
+
+export interface ProtoMessageSend extends ProtoMessageBase {
+    file: ProtoAttach;
 }
 
 export interface ProtoSolutionData {
     text: string;
-    attachList: {
-        mimetype: string;
-        fileLink: string;
-    }[];
+    attachList: ProtoAttach[];
 }
 
 export interface ProtoSolution {
@@ -33,6 +42,10 @@ export interface CustomContext extends Context<Update> {
             homeworks: Homework[];
             targetHomeworkID: number;
             waitSolution: boolean;
+            curretSolution: {
+                text: string;
+                rawAttachList: RawFileType[];
+            };
         };
     };
     educrm: {
@@ -48,4 +61,8 @@ export interface Homework {
     attachmenturlsList: string[];
 };
 
-export type SendMessageTo = { botToken: string; telegramChatID: number; };
+export type RawFileType = {
+    fileID: string;
+    fileName?: string;
+    mimeType?: string;
+};
