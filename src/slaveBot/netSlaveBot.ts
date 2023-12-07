@@ -9,7 +9,7 @@ import {
 import client from '../grpc/client';
 import { logger } from '../utils/logger';
 
-import { FileUploadRequest, GetHomeworksRequest, Message, SendSolutionRequest, SolutionData } from '../grpc/proto/model_pb';
+import { CreateChatRequest, FileUploadRequest, GetHomeworksRequest, Message, SendSolutionRequest, SolutionData } from '../grpc/proto/model_pb';
 import { streamInstance } from '../index';
 import SlaveBots, { ISlaveBotController } from './slaveBot';
 
@@ -167,5 +167,26 @@ export default class NetSlaveBot implements ISlaveBotController {
                     );
                 }
             );
+    }
+
+    createChat(studentid: number, classid: number) {
+        const request = new CreateChatRequest();
+        request.setStudentid(studentid);
+        request.setClassid(classid);
+        logger.info('createChat req ' + studentid + ' ' + classid);
+        return new Promise<number>((resolve, reject) => {
+            client.createChat(
+                request,
+                (err, response) => {
+                    if (err) {
+                        logger.error('Error:  ', err);
+                        return reject(-1);
+                    }
+                    logger.info('createChat resp ' + response.getInternalchatid());
+                    const chatid = response.getInternalchatid();
+                    return resolve(chatid);
+                },
+            );
+        });
     }
 };

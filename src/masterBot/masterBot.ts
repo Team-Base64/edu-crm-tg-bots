@@ -30,18 +30,18 @@ export default class MasterBot {
     bot;
     slaveBots;
     verifyTokenWeb: isValidFunType;
-    createChatWeb: createWebChatFunType;
+    // createChatWeb: createWebChatFunType;
     registerWeb: registerWeb;
     slaveBotBalancer: SlaveBotBalancer;
 
     constructor(
         token: string,
         verifyTokenWeb: isValidFunType,
-        createChatWeb: createWebChatFunType,
+        // createChatWeb: createWebChatFunType,
         registerWeb: registerWeb,
     ) {
         this.verifyTokenWeb = verifyTokenWeb;
-        this.createChatWeb = createChatWeb;
+        // this.createChatWeb = createChatWeb;
         this.registerWeb = registerWeb;
 
         this.slaveBotBalancer = new SlaveBotBalancer();
@@ -129,18 +129,17 @@ export default class MasterBot {
                             studentid = registerWebResponse?.studentid;
 
                             if (studentid != -1) {
-                                const createChatWebResponse = await this.createChatWeb(
-                                    studentid,
-                                    classid,
-                                ).catch((error) => {
-                                    logger.error('createChatWeb, result: ' + error);
-                                    return error;
-                                });
+                                // const createChatWebResponse = await this.createChatWeb(
+                                //     studentid,
+                                //     classid,
+                                // ).catch((error) => {
+                                //     logger.error('createChatWeb, result: ' + error);
+                                //     return error;
+                                // });
 
-                                chatid = createChatWebResponse?.chatid;
+                                // chatid = createChatWebResponse?.chatid;
 
                                 slaveBotLink = await this.#getNewSlaveBot(
-                                    chatid,
                                     ctx.message.from.id,
                                     studentid,
                                     classid,
@@ -206,7 +205,6 @@ export default class MasterBot {
     }
 
     async #getNewSlaveBot(
-        chatid: number,
         userid: number,
         studentid: number,
         classid: number,
@@ -233,7 +231,7 @@ export default class MasterBot {
             botid = botData.botid;
             link = botData.link;
         }
-        await dbInstance.addUser(chatid, userid, studentid, classid, botid);
+        await dbInstance.addUser(userid, studentid, classid, botid);
 
         return link;
     }

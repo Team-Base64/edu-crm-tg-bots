@@ -1,8 +1,7 @@
 import client from '../grpc/client';
 import MasterBot, {
-    createWebChatFunReturnType,
     isValidFunReturnType,
-    registerWebReturnType,
+    registerWebReturnType
 } from './masterBot';
 
 import messages from '../grpc/proto/model_pb';
@@ -15,7 +14,7 @@ export class NetMasterBot {
         this.masterBot = new MasterBot(
             masterBotToken,
             this.verifyToken,
-            this.createChat,
+            // this.createChat,
             this.register,
         );
         this.masterBot.launchBot();
@@ -51,26 +50,26 @@ export class NetMasterBot {
      *
      * @returns chatid
      * */
-    createChat(studentid: number, classid: number) {
-        const request = new messages.CreateChatRequest();
-        request.setStudentid(studentid);
-        request.setClassid(classid);
-        logger.info('createChat req ' + studentid + ' ' + classid);
-        return new Promise<createWebChatFunReturnType>((resolve, reject) => {
-            client.createChat(
-                request,
-                (err, response) => {
-                    if (err) {
-                        logger.error('Error:  ', err);
-                        return reject({ chatid: -1 });
-                    }
-                    logger.info('createChat resp ' + response.getInternalchatid());
-                    const chatid = response.getInternalchatid();
-                    return resolve({ chatid });
-                },
-            );
-        });
-    }
+    // createChat(studentid: number, classid: number) {
+    //     const request = new messages.CreateChatRequest();
+    //     request.setStudentid(studentid);
+    //     request.setClassid(classid);
+    //     logger.info('createChat req ' + studentid + ' ' + classid);
+    //     return new Promise<createWebChatFunReturnType>((resolve, reject) => {
+    //         client.createChat(
+    //             request,
+    //             (err, response) => {
+    //                 if (err) {
+    //                     logger.error('Error:  ', err);
+    //                     return reject({ chatid: -1 });
+    //                 }
+    //                 logger.info('createChat resp ' + response.getInternalchatid());
+    //                 const chatid = response.getInternalchatid();
+    //                 return resolve({ chatid });
+    //             },
+    //         );
+    //     });
+    // }
 
     /**
      *

@@ -11,15 +11,16 @@ import {
     SendMessageTo
 } from '../../types/interfaces';
 import { dbInstance } from '../index';
+import { HomeworkScene, IHomeworkSceneController, solutionPayloadType } from '../scenes/homeworkScene';
 import { RuntimeError, logger } from '../utils/logger';
 import { changeHttpsToHttp } from '../utils/url';
-import { HomeworkScene, IHomeworkSceneController, solutionPayloadType } from './scenes';
 
 export interface ISlaveBotController {
     sendMessageToClient: (message: ProtoMessageBase, sendMessageTo: SendMessageTo) => boolean;
     sendMessageWithAttachToClient: (message: ProtoMessageSend) => Promise<void>;
     getHomeworksInClass: (classID: number) => Promise<Homework[]>;
     sendSolutionToClient: (message: ProtoSolution) => Promise<void>;
+    createChat: (studentid: number, classid: number) => Promise<number>;
 }
 
 export type SendMessageData = {
@@ -178,6 +179,7 @@ export default class SlaveBots implements IHomeworkSceneController {
     }
 
     private async onStartCommand(ctx: CustomContext) {
+
         await ctx.reply(
             'Все готово! Можете начинать общаться с преподавателем.',
         ).catch((error) => logger.error('onStartCommand: ' + error));
@@ -202,20 +204,48 @@ export default class SlaveBots implements IHomeworkSceneController {
                     ctx.chat.id,
                     ctx.telegram.token,
                 );
-                if (typeof chatID == 'number') {
-                    ctx.educrm.chatID = chatID;
-                } else {
-                    logger.error('AuthMiddleware, no chatID');
-                    return this.replyErrorMsg(ctx);
+
+                switch (typeof chatID) {
+                    case 'object':
+                        const userInfo = await dbInstance.getStudentAndClassIdByUserIdAndToken(
+                            ctx.chat.id,
+                            ctx.telegram.token,
+                        );
+                        if (userInfo === undefined) {
+                            logger.error('AuthMiddleware, getStudentAndClassIdByUserIdAndToken: userInfo === undefined');
+                            return this.replyErrorMsg(ctx);
+                        }
+                        const newChatID = await this.controller.createChat(userInfo.studentID, userInfo.classID);
+                        if (newChatID === -1) {
+                            logger.error('AuthMiddleware, createChat: chatID === -1');
+                            return this.replyErrorMsg(ctx);
+                        }
+                        if (!await dbInstance.updateChatIdInByStudentAndClassId(
+                            newChatID,
+                            userInfo.studentID,
+                            userInfo.classID
+                        )) {
+                            logger.error('AuthMiddleware, updateChatIdInByStudentAndClassId: false');
+                            return this.replyErrorMsg(ctx);
+                        }
+                        ctx.educrm.chatID = newChatID;
+                        ctx.educrm.studentID = userInfo.studentID;
+                        break;
+                    case 'number':
+                        ctx.educrm.chatID = chatID;
+                        const studentID = await dbInstance.getStudentIdByChatId(chatID);
+                        if (typeof studentID == 'number') {
+                            ctx.educrm.studentID = studentID;
+                        } else {
+                            logger.error('AuthMiddleware, getStudentIdByChatId: studentID === undefined');
+                            return this.replyErrorMsg(ctx);
+                        }
+                        break;
+                    case 'undefined':
+                        logger.error('AuthMiddleware, getSlaveBotChatIdByUserIdAndToken: chatID === undefinded');
+                        return ctx.reply('Этот бот не зарегистрирован для Вас. Продолжите работу в мастер боте - https://t.me/educrmmaster2bot');
                 }
 
-                const studentID = await dbInstance.getStudentIdByChatId(chatID);
-                if (typeof studentID == 'number') {
-                    ctx.educrm.studentID = studentID;
-                } else {
-                    logger.error('AuthMiddleware, no studentID');
-                    return this.replyErrorMsg(ctx);
-                }
             }
             return next();
         });
@@ -225,41 +255,26 @@ export default class SlaveBots implements IHomeworkSceneController {
         bot.on(
             message("text"),
             async ctx => {
-                if (ctx.message) {
-                    const chatid = await dbInstance.getSlaveBotChatIdByUserIdAndToken(
-                        ctx.message.chat.id,
-                        ctx.telegram.token,
+                const sendMessageTo =
+                    await dbInstance.getSlaveBotTokenAndUserIdByChatId(ctx.educrm.chatID);
+                if (sendMessageTo) {
+                    this.controller.sendMessageToClient(
+                        {
+                            chatid: ctx.educrm.chatID,
+                            text: ctx.message.text,
+                        },
+                        sendMessageTo,
                     );
-
-                    if (chatid) {
-                        const sendMessageTo =
-                            await dbInstance.getSlaveBotTokenAndUserIdByChatId(chatid);
-                        if (sendMessageTo) {
-                            this.controller.sendMessageToClient(
-                                {
-                                    chatid,
-                                    text: ctx.message.text,
-                                },
-                                sendMessageTo,
-                            );
-                            logger.debug(
-                                'slave, #onTextMessage, text: ' + ctx.message.text,
-                            );
-                        } else {
-                            ctx.reply('Возникла ошибка, попробуйте позже').catch(
-                                (error) =>
-                                    logger.error(
-                                        '#onTextMessage, no sendMessageTo: ' + error,
-                                    ),
-                            );
-                        }
-                    } else {
-                        ctx.reply('Возникла ошибка, попробуйте позже').catch((error) =>
-                            logger.error('#onTextMessage, no chatid: ' + error),
-                        );
-                    }
+                    logger.debug(
+                        'slave, #onTextMessage, text: ' + ctx.message.text,
+                    );
                 } else {
-                    logger.warn("bot.on(['text']: no message");
+                    ctx.reply('Возникла ошибка, попробуйте позже').catch(
+                        (error) =>
+                            logger.error(
+                                '#onTextMessage, no sendMessageTo: ' + error,
+                            ),
+                    );
                 }
             }
         );

@@ -50,7 +50,6 @@ export class HomeworkScene {
   private async startHomeworkStep(ctx: CustomContext) {
     ctx.wizard.state.homeworks = [];
     ctx.wizard.state.targetHomeworkID = -1;
-    ctx.wizard.state.waitSolution = false;
 
     ctx.wizard.state.homeworks = await this.controller.getHomeworks(ctx);
     if (ctx.wizard.state.homeworks.length === 0) {
@@ -114,7 +113,6 @@ export class HomeworkScene {
     handler.action(
       'solution',
       async ctx => {
-        ctx.wizard.state.waitSolution = true;
         ctx.wizard.state.curretSolution ??= {
           text: '',
           rawAttachList: []
@@ -251,14 +249,14 @@ export class HomeworkScene {
     return handler;
   }
 
-  private async replyExit(ctx: CustomContext) {
-    await ctx.reply('Возврат к обмену сообщениями.');
-    return await ctx.scene.leave();
-  }
-
   private async replyExitWithError(ctx: CustomContext) {
     await ctx.reply('Упс, что то пошло не так (╥﹏╥)');
     return this.replyExit(ctx);
+  }
+
+  private async replyExit(ctx: CustomContext) {
+    await ctx.reply('Возврат к обмену сообщениями.');
+    return await ctx.scene.leave();
   }
 
 }

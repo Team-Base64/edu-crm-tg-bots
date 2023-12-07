@@ -41,7 +41,6 @@ export interface CustomContext extends Context<Update> {
         state: {
             homeworks: Homework[];
             targetHomeworkID: number;
-            waitSolution: boolean;
             curretSolution: {
                 text: string;
                 rawAttachList: RawFileType[];

@@ -114,10 +114,8 @@ export class Store {
     async checkIfUserExists(userid: number, classid: number) {
         return this.#db
             .query(
-                `select chat_id, student_id
-         from users
-         where user_id = $1
-           and class_id = $2;`,
+                `select chat_id, student_id from users
+                 where user_id = $1 and class_id = $2;`,
                 [userid, classid],
             )
             .then((data) => {
@@ -223,10 +221,11 @@ export class Store {
                 [userid, token],
             )
             .then((data) => {
-                if (!data.rows.length) {
-                    return null;
+                if (data.rows.length === 0) {
+                    postgresLogger.error('getSlaveBotChatIdByUserIdAndToken not found');
+                    return undefined;
                 }
-                return data.rows[0].chat_id as number;
+                return data.rows[0].chat_id as number | null;
             })
             .catch((error) => {
                 postgresLogger.error('getSlaveBotChatIdByUserId: ' + error);
@@ -254,7 +253,6 @@ export class Store {
     }
 
     async addUser(
-        chatid: number,
         userid: number,
         studentid: number,
         classid: number,
@@ -263,10 +261,10 @@ export class Store {
         return this.#db
             .query(
                 `insert into users
-                     (chat_id, user_id, student_id, class_id, bot_id)
-                 values ($1, $2, $3, $4, $5)
+                 (user_id, student_id, class_id, bot_id)
+                 values ($1, $2, $3, $4)
                  returning id;`,
-                [chatid, userid, studentid, classid, botid],
+                [userid, studentid, classid, botid],
             )
             .then((data) => {
                 if (!data.rows.length) {
@@ -279,6 +277,10 @@ export class Store {
                 return undefined;
             });
     }
+
+    // public async insertChatIdToUser(chatID: number, userID: number) {
+
+    // };
 
     async unlinkBot(linkToBot: string) {
         return this.#db
@@ -306,7 +308,8 @@ export class Store {
                 [chatID])
             .then((data) => {
                 if (!data.rows.length) {
-                    return null;
+                    postgresLogger.error('getStudentIdByChatId not found');
+                    return undefined;
                 }
                 return data.rows[0].student_id as number;
             })
@@ -314,6 +317,44 @@ export class Store {
                 postgresLogger.error('getStudentIdByChatId: ' + error);
                 return undefined;
             });
+    }
 
+    public async getStudentAndClassIdByUserIdAndToken(userid: number, token: string) {
+        return this.#db
+            .query(
+                `select users.student_id, users.class_id
+                 from users INNER JOIN bots ON users.bot_id = bots.id
+                 where users.user_id = $1 AND bots.token = $2;`,
+                [userid, token],
+            )
+            .then((data) => {
+                if (data.rows.length === 0) {
+                    postgresLogger.error('getStudentAndClassIdByUserIdAndToken not found');
+                    return undefined;
+                }
+                return {
+                    studentID: data.rows[0].student_id as number,
+                    classID: data.rows[0].class_id as number,
+                };
+            })
+            .catch((error) => {
+                postgresLogger.error('getStudentAndClassIdByUserIdAndToken: ' + error);
+                return undefined;
+            });
+    }
+
+    public async updateChatIdInByStudentAndClassId(chatID: number, studentID: number, classID: number) {
+        return this.#db
+            .query(
+                `update users set chat_id = $1 where student_id = $2 and class_id = $3;`,
+                [chatID, studentID, classID],
+            )
+            .then(() => {
+                return true;
+            })
+            .catch((error) => {
+                postgresLogger.error('getCurrentSlaveBot: ' + error);
+                return false;
+            });
     }
 }
