@@ -6,6 +6,7 @@ import MasterBot, {
 
 import messages from '../grpc/proto/model_pb';
 import { logger } from '../utils/logger';
+import mime from 'mime';
 
 export class NetMasterBot {
     masterBot: MasterBot;
@@ -16,6 +17,7 @@ export class NetMasterBot {
             this.verifyToken,
             // this.createChat,
             this.register,
+            this.uploadAvatar,
         );
         this.masterBot.launchBot();
     }
@@ -70,6 +72,34 @@ export class NetMasterBot {
     //         );
     //     });
     // }
+
+    uploadAvatar(rawLink: string) {
+        return new Promise<{ internalURL: string, mimetype: string } | undefined>((resolve, reject) => {
+
+            const mimetype = mime.getType(rawLink);
+            if (!mimetype) {
+                logger.error('Upload Avatar Error:  no mimetyme');
+                return reject(undefined);
+            }
+
+            const request = new messages.FileUploadRequest();
+            request.setFileurl(rawLink.replace('https', 'http'));
+            request.setMimetype(mimetype);
+
+            client.uploadFile(
+                request,
+                (err, response) => {
+                    if (err) {
+                        logger.error('Upload Avatar Error:  ', err);
+                        return reject(undefined);
+                    }
+
+                    logger.info('upload avatar resp ' + response.getInternalfileurl());
+                    return resolve({ internalURL: response.getInternalfileurl(), mimetype: mimetype });
+                },
+            );
+        });
+    }
 
     /**
      *
