@@ -25,6 +25,9 @@ type registerWeb = (
     classid: number,
     avatar: string,
 ) => Promise<{ studentid: number; }>;
+type uploadAvatar = (
+    rawLink: string,
+) => Promise<{ internalURL: string; mimetype: string } | undefined>;
 
 export default class MasterBot {
     bot;
@@ -33,16 +36,20 @@ export default class MasterBot {
     // createChatWeb: createWebChatFunType;
     registerWeb: registerWeb;
     slaveBotBalancer: SlaveBotBalancer;
+    uploadAvatar: uploadAvatar;
 
     constructor(
         token: string,
         verifyTokenWeb: isValidFunType,
         // createChatWeb: createWebChatFunType,
         registerWeb: registerWeb,
+        uploadAvatar: uploadAvatar
     ) {
         this.verifyTokenWeb = verifyTokenWeb;
         // this.createChatWeb = createChatWeb;
         this.registerWeb = registerWeb;
+
+        this.uploadAvatar = uploadAvatar;
 
         this.slaveBotBalancer = new SlaveBotBalancer();
 
@@ -111,7 +118,24 @@ export default class MasterBot {
                             )) ?? { userExists: false };
 
                         logger.debug('#onTextMessage, userExists: ' + userExists);
+                        let avatarInternalURL = '';
 
+                        try {
+                            const profilePhotos = await bot.telegram.getUserProfilePhotos(ctx.message.from.id, 0, 1);
+                            const latestPhoto = profilePhotos.photos.at(0)?.pop();
+
+
+                            if (latestPhoto) {
+                                const extURL = await bot.telegram.getFileLink(latestPhoto.file_id);
+                                const resp = await this.uploadAvatar(extURL.toString());
+                                if (resp) {
+                                    avatarInternalURL = resp.internalURL;
+                                }
+                            }
+                            logger.debug('Avatar: ' + avatarInternalURL);
+                        } catch (e) {
+                            logger.error(e, 'Avatar err ');
+                        }
                         let slaveBotLink = '';
                         if (!userExists) {
                             const registerWebResponse = await this.registerWeb(
@@ -120,7 +144,7 @@ export default class MasterBot {
                                 ' ' +
                                 (ctx.message.from.last_name ?? ''),
                                 classid,
-                                '',
+                                avatarInternalURL,
                             ).catch((error) => {
                                 logger.error('registerWeb, result: ' + error);
                                 return error;
