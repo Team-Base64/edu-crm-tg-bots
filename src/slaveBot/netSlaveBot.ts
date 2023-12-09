@@ -5,6 +5,7 @@ import {
     ProtoMessageSend,
     ProtoSolution,
     SendMessageTo,
+    Task,
 } from '../../types/interfaces';
 import client from '../grpc/client';
 import { logger } from '../utils/logger';
@@ -60,12 +61,20 @@ export default class NetSlaveBot implements ISlaveBotController {
                     }
                     const hws = response
                         .getHomeworksList()
-                        .map((hw) => {
+                        .map<Homework>((hw) => {
+                            const tasks = hw.getTasksList().map<Task>(
+                                task => {
+                                    return {
+                                        description: task.getDescription(),
+                                        attachmenturlsList: task.getAttachmenturlsList()
+                                    };
+                                }
+                            );
                             return {
                                 homeworkid: hw.getHomeworkid(),
                                 title: hw.getTitle(),
                                 description: hw.getDescription(),
-                                attachmenturlsList: hw.getAttachmenturlsList(),
+                                tasks
                             };
                         });
                     logger.info('getHomeworksInClass hws: ' + hws.length);

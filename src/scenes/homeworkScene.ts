@@ -90,6 +90,7 @@ export class HomeworkScene {
           `${hw.description}`,
           Markup.inlineKeyboard([
             Markup.button.callback('Сдать решение ☑️', 'solution'),
+            Markup.button.callback('Показать полностью 📖', 'show'),
             Markup.button.callback('Выйти 🏃', 'exit'),
           ], {
             columns: 1
@@ -128,9 +129,51 @@ export class HomeworkScene {
               Markup.button.callback('Выйти 🏃', 'exit'),
             ]),
           },
-
         );
         return ctx.wizard.next();
+      }
+    );
+    handler.action(
+      'show',
+      async ctx => {
+        const hw = ctx.wizard.state.homeworks.find(
+          hw => hw.homeworkid === ctx.wizard.state.targetHomeworkID
+        );
+        if (hw === undefined) {
+          await ctx.editMessageText(
+            'Упс, что-то пошло не так. Попробуйте позже.',
+            Markup.inlineKeyboard([])
+          );
+          return this.replyExit(ctx);
+        }
+
+        await ctx.editMessageText(
+          'Полное условие ДЗ ' + hw.title + '\n' +
+          hw.description,
+          Markup.inlineKeyboard([])
+        );
+
+        for (let idx = 0; idx < hw.tasks.length; idx++) {
+          const task = hw.tasks[idx];
+          if (task.attachmenturlsList.length === 0) {
+            await ctx.reply('Задача №' + (idx + 1) + '\n' + task.description);
+            continue;
+          }
+          await ctx.replyWithMediaGroup(
+            task.attachmenturlsList.map(
+              (attach, id) => {
+                return {
+                  media: attach,
+                  type: 'document',
+                  caption: id === task.attachmenturlsList.length - 1 ?
+                    'Задача №' + (idx + 1) + '\n' + task.description :
+                    undefined,
+                };
+              }
+            )
+          );
+        }
+        return this.replyExit(ctx);
       }
     );
     handler.action(
@@ -142,8 +185,7 @@ export class HomeworkScene {
           })
           .catch(() => '');
         await ctx.answerCbQuery(evilSay);
-        await ctx.reply('Возврат к обмену сообщениями.');
-        return await ctx.scene.leave();;
+        return this.replyExit(ctx);
       }
     );
     handler.on(

@@ -19,11 +19,16 @@ message FileUploadResponse {
     string internalFileURL = 1;
 }
 
+message TaskData {
+    string description = 1;
+    repeated string attachmentURLs = 2;
+}
+
 message HomeworkData {
     int32 homeworkID = 1;
     string title = 2;
     string description = 3;
-    repeated string attachmentURLs = 4;
+    repeated TaskData tasks = 4;
 }
 
 message GetHomeworksRequest {
