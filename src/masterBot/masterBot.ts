@@ -1,9 +1,8 @@
-import { Context } from 'telegraf';
 import { dbInstance, masterBotTokenLength } from '../index';
 import { logger } from '../utils/logger';
 import SlaveBotBalancer from './slaveBotBalancer';
 
-import { Telegraf } from 'telegraf';
+import { Context, Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
 
 export type isValidFunReturnType = Awaited<ReturnType<isValidFunType>>;
@@ -19,12 +18,12 @@ type isValidFunType = (token: string) => Promise<{
 type createWebChatFunType = (
     studentid: number,
     classid: number,
-) => Promise<{ chatid: number; }>;
+) => Promise<{ chatid: number }>;
 type registerWeb = (
     name: string,
     classid: number,
     avatar: string,
-) => Promise<{ studentid: number; }>;
+) => Promise<{ studentid: number }>;
 type uploadAvatar = (
     rawLink: string,
 ) => Promise<{ internalURL: string; mimetype: string } | undefined>;
@@ -43,7 +42,7 @@ export default class MasterBot {
         verifyTokenWeb: isValidFunType,
         // createChatWeb: createWebChatFunType,
         registerWeb: registerWeb,
-        uploadAvatar: uploadAvatar
+        uploadAvatar: uploadAvatar,
     ) {
         this.verifyTokenWeb = verifyTokenWeb;
         // this.createChatWeb = createChatWeb;
@@ -53,7 +52,7 @@ export default class MasterBot {
 
         this.slaveBotBalancer = new SlaveBotBalancer();
 
-        this.bot = new Telegraf(token);;
+        this.bot = new Telegraf(token);
 
         this.initBots();
 
@@ -96,143 +95,153 @@ export default class MasterBot {
     // }
 
     private async addTextMessageHandler(bot: Telegraf) {
-        bot.on(
-            message('text'),
-            async ctx => {
-                if (ctx.message && ctx.message.text.length === masterBotTokenLength) {
-                    const { isvalid, classid } = await this.verifyTokenWeb(
-                        ctx.message.text,
-                    ).catch((error) => {
-                        logger.error('verifyTokenWeb err: ' + error);
-                        return error;
-                    });
-                    logger.info(
-                        '#onTextMessage, verifyTokenWeb, res: ' +
+        bot.on(message('text'), async (ctx) => {
+            if (
+                ctx.message &&
+                ctx.message.text.length === masterBotTokenLength
+            ) {
+                const { isvalid, classid } = await this.verifyTokenWeb(
+                    ctx.message.text,
+                ).catch((error) => {
+                    logger.error('verifyTokenWeb err: ' + error);
+                    return error;
+                });
+                logger.info(
+                    '#onTextMessage, verifyTokenWeb, res: ' +
                         JSON.stringify({ isvalid, classid }),
-                    );
-                    if (isvalid) {
-                        let { userExists, chatid, studentid } =
-                            (await dbInstance.checkIfUserExists(
+                );
+                if (isvalid) {
+                    const { userExists, chatid } =
+                        (await dbInstance.checkIfUserExists(
+                            ctx.message.from.id,
+                            classid,
+                        )) ?? { userExists: false };
+
+                    logger.debug('#onTextMessage, userExists: ' + userExists);
+                    let avatarInternalURL = '';
+
+                    try {
+                        const profilePhotos =
+                            await bot.telegram.getUserProfilePhotos(
                                 ctx.message.from.id,
-                                classid,
-                            )) ?? { userExists: false };
+                                0,
+                                1,
+                            );
+                        const latestPhoto = profilePhotos.photos.at(0)?.pop();
 
-                        logger.debug('#onTextMessage, userExists: ' + userExists);
-                        let avatarInternalURL = '';
-
-                        try {
-                            const profilePhotos = await bot.telegram.getUserProfilePhotos(ctx.message.from.id, 0, 1);
-                            const latestPhoto = profilePhotos.photos.at(0)?.pop();
-
-
-                            if (latestPhoto) {
-                                const extURL = await bot.telegram.getFileLink(latestPhoto.file_id);
-                                const resp = await this.uploadAvatar(extURL.toString());
-                                if (resp) {
-                                    avatarInternalURL = resp.internalURL;
-                                }
+                        if (latestPhoto) {
+                            const extURL = await bot.telegram.getFileLink(
+                                latestPhoto.file_id,
+                            );
+                            const resp = await this.uploadAvatar(
+                                extURL.toString(),
+                            );
+                            if (resp) {
+                                avatarInternalURL = resp.internalURL;
                             }
-                            logger.debug('Avatar: ' + avatarInternalURL);
-                        } catch (e) {
-                            logger.error(e, 'Avatar err ');
                         }
-                        let slaveBotLink = '';
-                        if (!userExists) {
-                            const registerWebResponse = await this.registerWeb(
-                                (ctx.message.from.first_name ??
-                                    ctx.message.from.username) +
+                        logger.debug('Avatar: ' + avatarInternalURL);
+                    } catch (e) {
+                        logger.error(e, 'Avatar err ');
+                    }
+                    let slaveBotLink = '';
+                    if (!userExists) {
+                        const registerWebResponse = await this.registerWeb(
+                            (ctx.message.from.first_name ??
+                                ctx.message.from.username) +
                                 ' ' +
                                 (ctx.message.from.last_name ?? ''),
-                                classid,
-                                avatarInternalURL,
-                            ).catch((error) => {
-                                logger.error('registerWeb, result: ' + error);
-                                return error;
-                            });
+                            classid,
+                            avatarInternalURL,
+                        ).catch((error) => {
+                            logger.error('registerWeb, result: ' + error);
+                            return error;
+                        });
 
-                            studentid = registerWebResponse?.studentid;
+                        const studentid = registerWebResponse?.studentid;
 
-                            if (studentid != -1) {
-                                // const createChatWebResponse = await this.createChatWeb(
-                                //     studentid,
-                                //     classid,
-                                // ).catch((error) => {
-                                //     logger.error('createChatWeb, result: ' + error);
-                                //     return error;
-                                // });
+                        if (studentid != -1) {
+                            // const createChatWebResponse = await this.createChatWeb(
+                            //     studentid,
+                            //     classid,
+                            // ).catch((error) => {
+                            //     logger.error('createChatWeb, result: ' + error);
+                            //     return error;
+                            // });
 
-                                // chatid = createChatWebResponse?.chatid;
+                            // chatid = createChatWebResponse?.chatid;
 
-                                slaveBotLink = await this.#getNewSlaveBot(
-                                    ctx.message.from.id,
-                                    studentid,
-                                    classid,
-                                ).catch((error) => {
-                                    logger.warn(error.message);
-                                    ctx.reply(
-                                        'К сожалению Вам сейчас недоступно создание бота. ' +
-                                        'Отвяжите активный бот c помощью */help* и попробуйте снова',
-                                        { parse_mode: 'Markdown' },
-                                    );
-                                    return '';
-                                });
-                                logger.trace('new, slaveBotLink: ' + slaveBotLink);
-                            } else {
-                                logger.info("bot.on(['text']: error create student");
-                                ctx.reply('Ошибка сервера. ' + 'Попробуйте еще раз', {
-                                    parse_mode: 'Markdown',
-                                }).catch((reason: string) =>
-                                    logger.fatal("bot.on(['text'] error: " + reason),
-                                );
-                            }
-                        } else {
-                            slaveBotLink = await dbInstance.getExistingSlaveBot(
-                                chatid,
+                            slaveBotLink = await this.#getNewSlaveBot(
                                 ctx.message.from.id,
+                                studentid,
+                                classid,
+                            ).catch((error) => {
+                                logger.warn(error.message);
+                                ctx.reply(
+                                    'К сожалению Вам сейчас недоступно создание бота. ' +
+                                        'Отвяжите активный бот c помощью */help* и попробуйте снова',
+                                    { parse_mode: 'Markdown' },
+                                );
+                                return '';
+                            });
+                            logger.trace('new, slaveBotLink: ' + slaveBotLink);
+                        } else {
+                            logger.info(
+                                "bot.on(['text']: error create student",
                             );
-                            logger.trace('exist, slaveBotLink: ' + slaveBotLink);
-                        }
-
-                        if (slaveBotLink) {
                             ctx.reply(
-                                'Ваш бот для общения с преподавателем: ' +
-                                `*${slaveBotLink}*. ` +
-                                'Нажмите */start*, когда перейдете в этот бот',
-                                { parse_mode: 'Markdown' },
+                                'Ошибка сервера. ' + 'Попробуйте еще раз',
+                                {
+                                    parse_mode: 'Markdown',
+                                },
                             ).catch((reason: string) =>
-                                logger.fatal("bot.on(['text'] error: " + reason),
+                                logger.fatal(
+                                    "bot.on(['text'] error: " + reason,
+                                ),
                             );
                         }
                     } else {
-                        logger.info("bot.on(['text']: invalid token");
+                        slaveBotLink = await dbInstance.getExistingSlaveBot(
+                            chatid,
+                            ctx.message.from.id,
+                        );
+                        logger.trace('exist, slaveBotLink: ' + slaveBotLink);
+                    }
+
+                    if (slaveBotLink) {
                         ctx.reply(
-                            'Неверный токен. ' +
-                            'Для отображения помощи используйте */help*',
+                            'Ваш бот для общения с преподавателем: ' +
+                                `*${slaveBotLink}*. ` +
+                                'Нажмите */start*, когда перейдете в этот бот',
                             { parse_mode: 'Markdown' },
                         ).catch((reason: string) =>
                             logger.fatal("bot.on(['text'] error: " + reason),
                         );
                     }
                 } else {
-                    logger.info("bot.on(['text']: wrong symbols count");
+                    logger.info("bot.on(['text']: invalid token");
                     ctx.reply(
-                        `Токен может содержать только ${masterBotTokenLength} символов. ` +
-                        'Для отображения помощи используйте */help*',
+                        'Неверный токен. ' +
+                            'Для отображения помощи используйте */help*',
                         { parse_mode: 'Markdown' },
                     ).catch((reason: string) =>
                         logger.fatal("bot.on(['text'] error: " + reason),
                     );
                 }
+            } else {
+                logger.info("bot.on(['text']: wrong symbols count");
+                ctx.reply(
+                    `Токен может содержать только ${masterBotTokenLength} символов. ` +
+                        'Для отображения помощи используйте */help*',
+                    { parse_mode: 'Markdown' },
+                ).catch((reason: string) =>
+                    logger.fatal("bot.on(['text'] error: " + reason),
+                );
             }
-        );
-
+        });
     }
 
-    async #getNewSlaveBot(
-        userid: number,
-        studentid: number,
-        classid: number,
-    ) {
+    async #getNewSlaveBot(userid: number, studentid: number, classid: number) {
         const currentSlaveBots =
             await dbInstance.getCurrentSlaveBotsForUser(userid);
 

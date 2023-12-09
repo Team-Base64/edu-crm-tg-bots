@@ -222,7 +222,9 @@ export class Store {
             )
             .then((data) => {
                 if (data.rows.length === 0) {
-                    postgresLogger.error('getSlaveBotChatIdByUserIdAndToken not found');
+                    postgresLogger.error(
+                        'getSlaveBotChatIdByUserIdAndToken not found',
+                    );
                     return undefined;
                 }
                 return data.rows[0].chat_id as number | null;
@@ -305,7 +307,8 @@ export class Store {
                 `select student_id
                  from users
                  where chat_id = $1;`,
-                [chatID])
+                [chatID],
+            )
             .then((data) => {
                 if (!data.rows.length) {
                     postgresLogger.error('getStudentIdByChatId not found');
@@ -319,7 +322,10 @@ export class Store {
             });
     }
 
-    public async getStudentAndClassIdByUserIdAndToken(userid: number, token: string) {
+    public async getStudentAndClassIdByUserIdAndToken(
+        userid: number,
+        token: string,
+    ) {
         return this.#db
             .query(
                 `select users.student_id, users.class_id
@@ -329,7 +335,9 @@ export class Store {
             )
             .then((data) => {
                 if (data.rows.length === 0) {
-                    postgresLogger.error('getStudentAndClassIdByUserIdAndToken not found');
+                    postgresLogger.error(
+                        'getStudentAndClassIdByUserIdAndToken not found',
+                    );
                     return undefined;
                 }
                 return {
@@ -338,12 +346,18 @@ export class Store {
                 };
             })
             .catch((error) => {
-                postgresLogger.error('getStudentAndClassIdByUserIdAndToken: ' + error);
+                postgresLogger.error(
+                    'getStudentAndClassIdByUserIdAndToken: ' + error,
+                );
                 return undefined;
             });
     }
 
-    public async updateChatIdInByStudentAndClassId(chatID: number, studentID: number, classID: number) {
+    public async updateChatIdInByStudentAndClassId(
+        chatID: number,
+        studentID: number,
+        classID: number,
+    ) {
         return this.#db
             .query(
                 `update users set chat_id = $1 where student_id = $2 and class_id = $3;`,

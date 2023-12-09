@@ -1,7 +1,7 @@
 import client from '../grpc/client';
 import MasterBot, {
     isValidFunReturnType,
-    registerWebReturnType
+    registerWebReturnType,
 } from './masterBot';
 
 import messages from '../grpc/proto/model_pb';
@@ -31,20 +31,17 @@ export class NetMasterBot {
         request.setToken(token);
         logger.info('verifyToken req ' + token);
         return new Promise<isValidFunReturnType>((resolve, reject) =>
-            client.validateToken(
-                request,
-                (err, response) => {
-                    if (err) {
-                        logger.error('Error:  ', err);
-                        return reject({ isvalid: false, classid: -1 });
-                    }
-                    logger.info('verifyToken resp ' + response);
-                    return resolve({
-                        isvalid: true,
-                        classid: response.getClassid(),
-                    });
-                },
-            ),
+            client.validateToken(request, (err, response) => {
+                if (err) {
+                    logger.error('Error:  ', err);
+                    return reject({ isvalid: false, classid: -1 });
+                }
+                logger.info('verifyToken resp ' + response);
+                return resolve({
+                    isvalid: true,
+                    classid: response.getClassid(),
+                });
+            }),
         );
     }
 
@@ -74,8 +71,9 @@ export class NetMasterBot {
     // }
 
     uploadAvatar(rawLink: string) {
-        return new Promise<{ internalURL: string, mimetype: string } | undefined>((resolve, reject) => {
-
+        return new Promise<
+            { internalURL: string; mimetype: string } | undefined
+        >((resolve, reject) => {
             const mimetype = mime.getType(rawLink);
             if (!mimetype) {
                 logger.error('Upload Avatar Error:  no mimetyme');
@@ -86,18 +84,20 @@ export class NetMasterBot {
             request.setFileurl(rawLink.replace('https', 'http'));
             request.setMimetype(mimetype);
 
-            client.uploadFile(
-                request,
-                (err, response) => {
-                    if (err) {
-                        logger.error('Upload Avatar Error:  ', err);
-                        return reject(undefined);
-                    }
+            client.uploadFile(request, (err, response) => {
+                if (err) {
+                    logger.error('Upload Avatar Error:  ', err);
+                    return reject(undefined);
+                }
 
-                    logger.info('upload avatar resp ' + response.getInternalfileurl());
-                    return resolve({ internalURL: response.getInternalfileurl(), mimetype: mimetype });
-                },
-            );
+                logger.info(
+                    'upload avatar resp ' + response.getInternalfileurl(),
+                );
+                return resolve({
+                    internalURL: response.getInternalfileurl(),
+                    mimetype: mimetype,
+                });
+            });
         });
     }
 
@@ -114,21 +114,18 @@ export class NetMasterBot {
         request.setClassid(classid);
         logger.info('register req ' + name + ' ' + avatar + ' ' + classid);
         return new Promise<registerWebReturnType>((resolve, reject) => {
-            client.createStudent(
-                request,
-                (err, response) => {
-                    if (err) {
-                        logger.error('Error:  ', err);
-                        return reject({ studentid: -1 });
-                    }
-                    // logger.info('register resp ' + studentid);
-                    // return resolve({ studentid });
+            client.createStudent(request, (err, response) => {
+                if (err) {
+                    logger.error('Error:  ', err);
+                    return reject({ studentid: -1 });
+                }
+                // logger.info('register resp ' + studentid);
+                // return resolve({ studentid });
 
-                    logger.info('register resp ' + response.getStudentid());
-                    const studentid = response.getStudentid();
-                    return resolve({ studentid });
-                },
-            );
+                logger.info('register resp ' + response.getStudentid());
+                const studentid = response.getStudentid();
+                return resolve({ studentid });
+            });
         });
     }
 }

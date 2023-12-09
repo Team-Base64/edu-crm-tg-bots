@@ -56,14 +56,14 @@ export interface CustomContext extends Context<Update> {
 export interface Task {
     description: string;
     attachmenturlsList: string[];
-};
+}
 
 export interface Homework {
     homeworkid: number;
     title: string;
     description: string;
     tasks: Task[];
-};
+}
 
 export type RawFileType = {
     fileID: string;

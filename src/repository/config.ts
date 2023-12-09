@@ -4,7 +4,7 @@ import {
     POSTGRES_HOST,
     POSTGRES_PASSWORD,
     POSTGRES_PORT,
-    POSTGRES_DB
+    POSTGRES_DB,
 } from '../config/envs';
 
 const postgresConfig: ClientConfig = {

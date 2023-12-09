@@ -2,13 +2,13 @@ import 'dotenv/config';
 import { RuntimeError } from '../utils/logger';
 
 function getEnvVariable(key: string): string {
-  const value = process.env[key];
+    const value = process.env[key];
 
-  if (value === undefined) {
-    RuntimeError(`Environment variable ${key} is not set.`);
-  }
+    if (value === undefined) {
+        RuntimeError(`Environment variable ${key} is not set.`);
+    }
 
-  return value;
+    return value;
 }
 
 export const MASTER_BOT_TOKEN = getEnvVariable('MASTER_BOT_TOKEN');

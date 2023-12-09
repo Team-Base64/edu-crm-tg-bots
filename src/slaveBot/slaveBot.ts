@@ -1,6 +1,6 @@
 import mime from 'mime';
 import { Context, Telegraf, session } from 'telegraf';
-import { message } from "telegraf/filters";
+import { message } from 'telegraf/filters';
 import {
     CustomContext,
     Homework,
@@ -8,15 +8,22 @@ import {
     ProtoMessageSend,
     ProtoSolution,
     RawFileType,
-    SendMessageTo
+    SendMessageTo,
 } from '../../types/interfaces';
 import { dbInstance } from '../index';
-import { HomeworkScene, IHomeworkSceneController, solutionPayloadType } from '../scenes/homeworkScene';
+import {
+    HomeworkScene,
+    IHomeworkSceneController,
+    solutionPayloadType,
+} from '../scenes/homeworkScene';
 import { RuntimeError, logger } from '../utils/logger';
 import { changeHttpsToHttp } from '../utils/url';
 
 export interface ISlaveBotController {
-    sendMessageToClient: (message: ProtoMessageBase, sendMessageTo: SendMessageTo) => boolean;
+    sendMessageToClient: (
+        message: ProtoMessageBase,
+        sendMessageTo: SendMessageTo,
+    ) => boolean;
     sendMessageWithAttachToClient: (message: ProtoMessageSend) => Promise<void>;
     getHomeworksInClass: (classID: number) => Promise<Homework[]>;
     sendSolutionToClient: (message: ProtoSolution) => Promise<void>;
@@ -38,9 +45,7 @@ export default class SlaveBots implements IHomeworkSceneController {
     controller: ISlaveBotController;
     sceneBuilder: HomeworkScene;
 
-    constructor(
-        controller: ISlaveBotController,
-    ) {
+    constructor(controller: ISlaveBotController) {
         this.controller = controller;
         this.sceneBuilder = new HomeworkScene(this);
 
@@ -79,11 +84,11 @@ export default class SlaveBots implements IHomeworkSceneController {
             bot.telegram.setMyCommands([
                 {
                     command: 'help',
-                    description: 'Подсказки по пользованию нашим сервисом'
+                    description: 'Подсказки по пользованию нашим сервисом',
                 },
                 {
                     command: this.sceneBuilder.scenes.homeworks.name,
-                    description: this.sceneBuilder.scenes.homeworks.description
+                    description: this.sceneBuilder.scenes.homeworks.description,
                 },
             ]);
             this.addHomeworkCommandHandler(bot);
@@ -92,11 +97,10 @@ export default class SlaveBots implements IHomeworkSceneController {
             this.addPhotoMessageHandler(bot);
             this.addDocumentMessageHandler(bot);
 
-            bot.action(/.+/, ctx => {
+            bot.action(/.+/, (ctx) => {
                 return ctx.answerCbQuery('Оу, не сейчас!');
             });
         });
-
     }
 
     private getBot(token: string) {
@@ -106,7 +110,6 @@ export default class SlaveBots implements IHomeworkSceneController {
         } else {
             return bot;
         }
-
     }
 
     private launchBots() {
@@ -131,11 +134,10 @@ export default class SlaveBots implements IHomeworkSceneController {
             .telegram.sendDocument(telegramChatID, text)
             .catch((error: string) => {
                 logger.error('sendDocument: ' + error);
-                this.getBot(botToken)
-                    .telegram.sendMessage(
-                        telegramChatID,
-                        'Ошибка при отправке файла',
-                    );
+                this.getBot(botToken).telegram.sendMessage(
+                    telegramChatID,
+                    'Ошибка при отправке файла',
+                );
             });
         logger.debug('sendDocument: ' + text);
     }
@@ -145,51 +147,56 @@ export default class SlaveBots implements IHomeworkSceneController {
             .telegram.sendDocument(telegramChatID, text)
             .catch((error: string) => {
                 logger.error('sendPhoto: ' + error);
-                this.getBot(botToken)
-                    .telegram.sendMessage(
-                        telegramChatID,
-                        'Ошибка при отправке фото',
-                    );
+                this.getBot(botToken).telegram.sendMessage(
+                    telegramChatID,
+                    'Ошибка при отправке фото',
+                );
             });
 
         logger.debug('sendPhoto: ' + text);
     }
 
-    sendAttaches({ botToken, telegramChatID }: SendMessageTo, data: SendMessageData) {
-        logger.debug(`sendMedia: text - ${data.text}, attaches - ${data.atachList.length}`);
-        this.getBot(botToken).telegram.sendMediaGroup(
-            telegramChatID,
-            data.atachList.map(
-                (attach, idx) => {
+    sendAttaches(
+        { botToken, telegramChatID }: SendMessageTo,
+        data: SendMessageData,
+    ) {
+        logger.debug(
+            `sendMedia: text - ${data.text}, attaches - ${data.atachList.length}`,
+        );
+        this.getBot(botToken)
+            .telegram.sendMediaGroup(
+                telegramChatID,
+                data.atachList.map((attach, idx) => {
                     return {
                         media: attach,
                         type: 'document',
-                        caption: idx === data.atachList.length - 1 ? data.text : undefined,
-                    };;
-                }
+                        caption:
+                            idx === data.atachList.length - 1
+                                ? data.text
+                                : undefined,
+                    };
+                }),
             )
-        ).catch((error: string) => {
-            logger.error('sendMedia: ' + error);
-            this.getBot(botToken)
-                .telegram.sendMessage(
+            .catch((error: string) => {
+                logger.error('sendMedia: ' + error);
+                this.getBot(botToken).telegram.sendMessage(
                     telegramChatID,
                     'Ошибка при отправке сообщения',
                 );
-        });
+            });
     }
 
     private async onStartCommand(ctx: CustomContext) {
-
-        await ctx.reply(
-            'Все готово! Можете начинать общаться с преподавателем.',
-        ).catch((error) => logger.error('onStartCommand: ' + error));
+        await ctx
+            .reply('Все готово! Можете начинать общаться с преподавателем.')
+            .catch((error) => logger.error('onStartCommand: ' + error));
     }
 
     private async onHelpCommand(ctx: CustomContext) {
         await ctx.replyWithMarkdownV2(
             'Добро пожаловать в TG бота сервиса EDUCRM\\!\n' +
-            'Важные замечания:\n' +
-            '\\- В нашем сервисе можно пожаловать только *картинки* и *pdf*'
+                'Важные замечания:\n' +
+                '\\- В нашем сервисе можно пожаловать только *картинки* и *pdf*',
         );
     }
 
@@ -197,169 +204,186 @@ export default class SlaveBots implements IHomeworkSceneController {
         bot.use(async (ctx, next) => {
             ctx.educrm ??= {
                 chatID: -1,
-                studentID: -1
+                studentID: -1,
             };
             if (ctx.chat) {
-                const chatID = await dbInstance.getSlaveBotChatIdByUserIdAndToken(
-                    ctx.chat.id,
-                    ctx.telegram.token,
-                );
+                const chatID =
+                    await dbInstance.getSlaveBotChatIdByUserIdAndToken(
+                        ctx.chat.id,
+                        ctx.telegram.token,
+                    );
 
                 switch (typeof chatID) {
-                    case 'object':
-                        const userInfo = await dbInstance.getStudentAndClassIdByUserIdAndToken(
-                            ctx.chat.id,
-                            ctx.telegram.token,
-                        );
+                    case 'object': {
+                        const userInfo =
+                            await dbInstance.getStudentAndClassIdByUserIdAndToken(
+                                ctx.chat.id,
+                                ctx.telegram.token,
+                            );
                         if (userInfo === undefined) {
-                            logger.error('AuthMiddleware, getStudentAndClassIdByUserIdAndToken: userInfo === undefined');
+                            logger.error(
+                                'AuthMiddleware, getStudentAndClassIdByUserIdAndToken: userInfo === undefined',
+                            );
                             return this.replyErrorMsg(ctx);
                         }
-                        const newChatID = await this.controller.createChat(userInfo.studentID, userInfo.classID);
-                        if (newChatID === -1) {
-                            logger.error('AuthMiddleware, createChat: chatID === -1');
-                            return this.replyErrorMsg(ctx);
-                        }
-                        if (!await dbInstance.updateChatIdInByStudentAndClassId(
-                            newChatID,
+                        const newChatID = await this.controller.createChat(
                             userInfo.studentID,
-                            userInfo.classID
-                        )) {
-                            logger.error('AuthMiddleware, updateChatIdInByStudentAndClassId: false');
+                            userInfo.classID,
+                        );
+                        if (newChatID === -1) {
+                            logger.error(
+                                'AuthMiddleware, createChat: chatID === -1',
+                            );
+                            return this.replyErrorMsg(ctx);
+                        }
+                        if (
+                            !(await dbInstance.updateChatIdInByStudentAndClassId(
+                                newChatID,
+                                userInfo.studentID,
+                                userInfo.classID,
+                            ))
+                        ) {
+                            logger.error(
+                                'AuthMiddleware, updateChatIdInByStudentAndClassId: false',
+                            );
                             return this.replyErrorMsg(ctx);
                         }
                         ctx.educrm.chatID = newChatID;
                         ctx.educrm.studentID = userInfo.studentID;
                         break;
-                    case 'number':
+                    }
+                    case 'number': {
                         ctx.educrm.chatID = chatID;
-                        const studentID = await dbInstance.getStudentIdByChatId(chatID);
+                        const studentID =
+                            await dbInstance.getStudentIdByChatId(chatID);
                         if (typeof studentID == 'number') {
                             ctx.educrm.studentID = studentID;
                         } else {
-                            logger.error('AuthMiddleware, getStudentIdByChatId: studentID === undefined');
+                            logger.error(
+                                'AuthMiddleware, getStudentIdByChatId: studentID === undefined',
+                            );
                             return this.replyErrorMsg(ctx);
                         }
                         break;
+                    }
                     case 'undefined':
-                        logger.error('AuthMiddleware, getSlaveBotChatIdByUserIdAndToken: chatID === undefinded');
-                        return ctx.reply('Этот бот не зарегистрирован для Вас. Продолжите работу в мастер боте - https://t.me/educrmmaster2bot');
+                        logger.error(
+                            'AuthMiddleware, getSlaveBotChatIdByUserIdAndToken: chatID === undefinded',
+                        );
+                        return ctx.reply(
+                            'Этот бот не зарегистрирован для Вас. Продолжите работу в мастер боте - https://t.me/educrmmaster2bot',
+                        );
                 }
-
             }
             return next();
         });
     }
 
     private addTextMessageHandler(bot: Telegraf<CustomContext>) {
-        bot.on(
-            message("text"),
-            async ctx => {
-                const sendMessageTo =
-                    await dbInstance.getSlaveBotTokenAndUserIdByChatId(ctx.educrm.chatID);
-                if (sendMessageTo) {
-                    this.controller.sendMessageToClient(
-                        {
-                            chatid: ctx.educrm.chatID,
-                            text: ctx.message.text,
-                        },
-                        sendMessageTo,
-                    );
-                    logger.debug(
-                        'slave, #onTextMessage, text: ' + ctx.message.text,
-                    );
-                } else {
-                    ctx.reply('Возникла ошибка, попробуйте позже').catch(
-                        (error) =>
-                            logger.error(
-                                '#onTextMessage, no sendMessageTo: ' + error,
-                            ),
-                    );
-                }
+        bot.on(message('text'), async (ctx) => {
+            const sendMessageTo =
+                await dbInstance.getSlaveBotTokenAndUserIdByChatId(
+                    ctx.educrm.chatID,
+                );
+            if (sendMessageTo) {
+                this.controller.sendMessageToClient(
+                    {
+                        chatid: ctx.educrm.chatID,
+                        text: ctx.message.text,
+                    },
+                    sendMessageTo,
+                );
+                logger.debug(
+                    'slave, #onTextMessage, text: ' + ctx.message.text,
+                );
+            } else {
+                ctx.reply('Возникла ошибка, попробуйте позже').catch((error) =>
+                    logger.error('#onTextMessage, no sendMessageTo: ' + error),
+                );
             }
-        );
+        });
     }
 
     private addPhotoMessageHandler(bot: Telegraf<CustomContext>) {
-        bot.on(
-            message("photo"),
-            async ctx => {
-                if (ctx.message && ctx.message.photo) {
-                    const fileID = ctx.message.photo.pop()?.file_id;
-                    if (fileID === undefined) {
-                        logger.error('addPhotoMessageHandler: fileID === undefined');
-                        return this.replyErrorMsg(ctx);
-                    }
-                    const file = await this.prepareFileUpload(ctx.telegram.token, { fileID });
-                    if (file === undefined) {
-                        logger.error('addPhotoMessageHandler: file === undefined');
-                        return this.replyErrorMsg(ctx);
-                    }
+        bot.on(message('photo'), async (ctx) => {
+            if (ctx.message && ctx.message.photo) {
+                const fileID = ctx.message.photo.pop()?.file_id;
+                if (fileID === undefined) {
+                    logger.error(
+                        'addPhotoMessageHandler: fileID === undefined',
+                    );
+                    return this.replyErrorMsg(ctx);
+                }
+                const file = await this.prepareFileUpload(ctx.telegram.token, {
+                    fileID,
+                });
+                if (file === undefined) {
+                    logger.error('addPhotoMessageHandler: file === undefined');
+                    return this.replyErrorMsg(ctx);
+                }
 
-                    await this.controller.sendMessageWithAttachToClient({
+                await this.controller
+                    .sendMessageWithAttachToClient({
                         chatid: ctx.educrm.chatID,
                         text: ctx.message.caption ?? '',
                         file: {
                             mimeType: file.mimeType,
                             fileLink: changeHttpsToHttp(file.fileLink),
-                        }
-                    }).catch(
-                        () => {
-                            logger.error("addPhotoMessageHandler: sendMessageWithAttachToClient error");
-                            return this.replyErrorMsg(ctx);
-                        }
-                    );
-                } else {
-                    logger.error("addPhotoMessageHandler: no message or photo");
-                    return this.replyErrorMsg(ctx);
-                }
+                        },
+                    })
+                    .catch(() => {
+                        logger.error(
+                            'addPhotoMessageHandler: sendMessageWithAttachToClient error',
+                        );
+                        return this.replyErrorMsg(ctx);
+                    });
+            } else {
+                logger.error('addPhotoMessageHandler: no message or photo');
+                return this.replyErrorMsg(ctx);
             }
-        );
+        });
     }
 
     private addDocumentMessageHandler(bot: Telegraf<CustomContext>) {
-        bot.on(
-            message("document"),
-            async ctx => {
-                if (ctx.message && ctx.message.document) {
-                    const file = await this.prepareFileUpload(ctx.telegram.token, {
-                        fileID: ctx.message.document.file_id,
-                        fileName: ctx.message.document.file_name,
-                        mimeType: ctx.message.document.mime_type
-                    });
-                    if (file === undefined) {
-                        logger.error('addDocumentMessageHandler: file === undefined');
-                        return this.replyErrorMsg(ctx);
-                    }
+        bot.on(message('document'), async (ctx) => {
+            if (ctx.message && ctx.message.document) {
+                const file = await this.prepareFileUpload(ctx.telegram.token, {
+                    fileID: ctx.message.document.file_id,
+                    fileName: ctx.message.document.file_name,
+                    mimeType: ctx.message.document.mime_type,
+                });
+                if (file === undefined) {
+                    logger.error(
+                        'addDocumentMessageHandler: file === undefined',
+                    );
+                    return this.replyErrorMsg(ctx);
+                }
 
-                    await this.controller.sendMessageWithAttachToClient({
+                await this.controller
+                    .sendMessageWithAttachToClient({
                         chatid: ctx.educrm.chatID,
                         text: ctx.message.caption ?? '',
                         file: {
                             mimeType: file.mimeType,
                             fileLink: changeHttpsToHttp(file.fileLink),
-                        }
-                    }).catch(
-                        () => {
-                            logger.error("addDocumentMessageHandler: sendMessageWithAttachToClient error");
-                            return this.replyErrorMsg(ctx);
-                        }
-                    );
-
-                } else {
-                    logger.warn("addDocumentMessageHandler: no message");
-                }
+                        },
+                    })
+                    .catch(() => {
+                        logger.error(
+                            'addDocumentMessageHandler: sendMessageWithAttachToClient error',
+                        );
+                        return this.replyErrorMsg(ctx);
+                    });
+            } else {
+                logger.warn('addDocumentMessageHandler: no message');
             }
-        );
+        });
     }
 
     private addHomeworkCommandHandler(bot: Telegraf<CustomContext>) {
-        bot.command(
-            this.sceneBuilder.scenes.homeworks.name,
-            async ctx => {
-                ctx.scene.enter(this.sceneBuilder.scenes.homeworks.name);
-            }
-        );
+        bot.command(this.sceneBuilder.scenes.homeworks.name, async (ctx) => {
+            ctx.scene.enter(this.sceneBuilder.scenes.homeworks.name);
+        });
     }
 
     async getHomeworks(ctx: CustomContext): Promise<Homework[]> {
@@ -369,16 +393,20 @@ export default class SlaveBots implements IHomeworkSceneController {
             return [];
         }
 
-        const classid = await dbInstance.getSlaveBotClassIdByChatId(ctx.educrm.chatID);
+        const classid = await dbInstance.getSlaveBotClassIdByChatId(
+            ctx.educrm.chatID,
+        );
         if (typeof classid !== 'number') {
             logger.error('addHomeworkCommandHandler: classid - ' + classid);
             await this.replyErrorMsg(ctx);
             return [];
         }
-        return await this.controller.getHomeworksInClass(classid).catch((error) => {
-            logger.error('addHomeworkCommandHandler: ' + error);
-            return [];
-        });;
+        return await this.controller
+            .getHomeworksInClass(classid)
+            .catch((error) => {
+                logger.error('addHomeworkCommandHandler: ' + error);
+                return [];
+            });
     }
 
     async sendSolution(solution: solutionPayloadType) {
@@ -406,22 +434,26 @@ export default class SlaveBots implements IHomeworkSceneController {
             return false;
         }
 
-        return await this.controller.sendSolutionToClient({
-            homeworkID: solution.homeworkID,
-            data: {
-                text: solution.text,
-                attachList
-            },
-            studentID: solution.studentID
-        })
+        return await this.controller
+            .sendSolutionToClient({
+                homeworkID: solution.homeworkID,
+                data: {
+                    text: solution.text,
+                    attachList,
+                },
+                studentID: solution.studentID,
+            })
             .then(() => true)
             .catch(() => false);
     }
 
-    private async prepareFileUpload(token: string, file: RawFileType): Promise<AttachType | undefined> {
+    private async prepareFileUpload(
+        token: string,
+        file: RawFileType,
+    ): Promise<AttachType | undefined> {
         const fileLink = await this.getBot(token)
             .telegram.getFileLink(file.fileID)
-            .then(url => url.toString())
+            .then((url) => url.toString())
             .catch((err: unknown) => {
                 logger.error('prepareFileUpload, getFileLink: ' + err);
                 return undefined;
@@ -430,9 +462,10 @@ export default class SlaveBots implements IHomeworkSceneController {
             return undefined;
         }
 
-        const mimeType = file.mimeType ?? mime.getType(file.fileName ?? fileLink);
+        const mimeType =
+            file.mimeType ?? mime.getType(file.fileName ?? fileLink);
         if (mimeType === null) {
-            logger.error("prepareFileUpload: mimetype === null");
+            logger.error('prepareFileUpload: mimetype === null');
             return undefined;
         }
         return { fileLink, mimeType };

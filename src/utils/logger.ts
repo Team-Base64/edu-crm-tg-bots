@@ -9,7 +9,9 @@ export const logger = pino({
     level: 'trace',
 });
 
-export const RuntimeError: (message: string) => never = (msg: string): never => {
+export const RuntimeError: (message: string) => never = (
+    msg: string,
+): never => {
     logger.fatal(msg);
     exit(1);
 };
