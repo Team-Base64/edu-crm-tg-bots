@@ -1,11 +1,12 @@
 import {
+    Event,
     Homework,
     ProtoMessageBase,
     ProtoMessageRecieve,
     ProtoMessageSend,
     ProtoSolution,
     SendMessageTo,
-    Task,
+    Task
 } from '../../types/interfaces';
 import client from '../grpc/client';
 import { logger } from '../utils/logger';
@@ -13,6 +14,7 @@ import { logger } from '../utils/logger';
 import {
     CreateChatRequest,
     FileUploadRequest,
+    GetEventsRequest,
     GetHomeworksRequest,
     Message,
     SendSolutionRequest,
@@ -172,12 +174,36 @@ export default class NetSlaveBot implements ISlaveBotController {
         return new Promise<number>((resolve, reject) => {
             client.createChat(request, (err, response) => {
                 if (err) {
-                    logger.error('Error:  ', err);
+                    logger.error('createChat: ', err);
                     return reject(-1);
                 }
                 logger.info('createChat resp ' + response.getInternalchatid());
                 const chatid = response.getInternalchatid();
                 return resolve(chatid);
+            });
+        });
+    }
+
+    getEvents(classID: number): Promise<Event[]> {
+        const request = new GetEventsRequest();
+        request.setClassid(classID);
+        return new Promise<Event[]>((resolve, reject) => {
+            client.getEvents(request, (err, response) => {
+                if (err) {
+                    logger.error('getEvents:  ', err);
+                    return reject([]);
+                }
+                const events = response.getEventsList().map<Event>(
+                    eventData => {
+                        return {
+                            title: eventData.getTitle(),
+                            description: eventData.getDescription(),
+                            startDate: eventData.getStartdate(),
+                            endDate: eventData.getEnddate()
+                        };
+                    }
+                );
+                return resolve(events);
             });
         });
     }

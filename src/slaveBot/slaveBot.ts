@@ -3,12 +3,13 @@ import { Context, Scenes, Telegraf, session } from 'telegraf';
 import { message } from 'telegraf/filters';
 import {
     CustomContext,
+    Event,
     Homework,
     ProtoMessageBase,
     ProtoMessageSend,
     ProtoSolution,
-    RawFileType,
-    SendMessageTo,
+    RawFile,
+    SendMessageTo
 } from '../../types/interfaces';
 import { dbInstance } from '../index';
 import {
@@ -25,6 +26,7 @@ export interface ISlaveBotController {
     getHomeworksInClass: (classID: number) => Promise<Homework[]>;
     sendSolutionToClient: (message: ProtoSolution) => Promise<void>;
     createChat: (studentid: number, classid: number) => Promise<number>;
+    getEvents: (classID: number) => Promise<Event[]>;
 }
 
 export type SendMessageData = {
@@ -96,6 +98,7 @@ export default class SlaveBots implements IHomeworkSceneController {
 
             bot.telegram.setMyCommands(this.commands);
             this.addHomeworkCommandHandler(bot);
+            this.addEventCommandHandler(bot);
 
             this.addTextMessageHandler(bot);
             this.addPhotoMessageHandler(bot);
@@ -377,9 +380,35 @@ export default class SlaveBots implements IHomeworkSceneController {
         });
     }
 
+    private addEventCommandHandler(bot: Telegraf<CustomContext>) {
+        bot.command(this.commands[2].command, async (ctx) => {
+            const events = await this.controller.getEvents(ctx.educrm.classID);
+            if (events.length === 0) {
+                return await ctx.replyWithMarkdownV2('Вам не назначены занятия в ближайшие 2 недели');
+            }
+            let msg = 'Ближайшие занятия:\n';
+            events.forEach((event, idx) => {
+                msg += `${idx + 1}\\. ${this.escapeForMDV2(event.title)}\n`;
+                msg += `Описание: ${this.escapeForMDV2(event.description)}\n`;
+                const startDate = new Date(event.startDate);
+                const endDate = new Date(event.endDate);
+
+                msg += `Дата занятия: ${this.escapeForMDV2(startDate.toISOString())}\n`;
+                msg += `Продолжительность: ${this.escapeForMDV2(endDate.toISOString())}\n`;
+                msg += '\n';
+            });
+            return await ctx.replyWithMarkdownV2(msg.slice(0, -2));
+        });
+    }
+
+    private escapeForMDV2(input: string): string {
+        const specialChars = '_*[]()~`>#+=|{}.!-';
+        return input.replace(new RegExp(`([${specialChars}])`, 'g'), '\\$1');
+    }
+
     private async prepareFileUpload(
         token: string,
-        file: RawFileType,
+        file: RawFile,
     ): Promise<AttachType | undefined> {
         const fileLink = await this.getBot(token)
             .telegram.getFileLink(file.fileID)

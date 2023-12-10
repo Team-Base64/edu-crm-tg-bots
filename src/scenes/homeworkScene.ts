@@ -1,6 +1,6 @@
 import { Composer, Markup, Scenes } from 'telegraf';
 import { message } from 'telegraf/filters';
-import { CustomContext, Homework, RawFileType } from '../../types/interfaces';
+import { CustomContext, Homework, RawFile } from '../../types/interfaces';
 import { logger } from '../utils/logger';
 
 export interface IHomeworkSceneController {
@@ -10,7 +10,7 @@ export interface IHomeworkSceneController {
 
 export type solutionPayloadType = {
     token: string;
-    files: RawFileType[];
+    files: RawFile[];
     text: string;
     homeworkID: number;
     studentID: number;

@@ -43,7 +43,7 @@ export interface CustomContext extends Context<Update> {
             targetHomeworkID: number;
             curretSolution: {
                 text: string;
-                rawAttachList: RawFileType[];
+                rawAttachList: RawFile[];
             };
         };
     };
@@ -66,8 +66,15 @@ export interface Homework {
     tasks: Task[];
 }
 
-export interface RawFileType {
+export interface RawFile {
     fileID: string;
     fileName?: string;
     mimeType?: string;
+};
+
+export interface Event {
+    title: string;
+    description: string;
+    startDate: string;
+    endDate: string;
 };

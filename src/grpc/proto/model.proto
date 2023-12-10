@@ -81,6 +81,22 @@ message CreateChatResponse {
     int32 internalChatID = 1;
 }
 
+message EventData {
+    string id = 1;
+    string title = 2;
+    string description = 3;
+    string startDate = 4;
+    string endDate = 5;
+}
+
+message GetEventsRequest {
+    int32 classID = 1;
+}
+
+message GetEventsResponse {
+    repeated EventData events = 1;
+}
+
 service BotChat {
     rpc StartChatTG(stream Message) returns (stream Message);
 
@@ -90,4 +106,5 @@ service BotChat {
     rpc GetHomeworks (GetHomeworksRequest) returns (GetHomeworksResponse);
     rpc CreateStudent(CreateStudentRequest) returns (CreateStudentResponse);
     rpc SendSolution (SendSolutionRequest) returns (SendSolutionResponse);
+    rpc GetEvents (GetEventsRequest) returns (GetEventsResponse);
 }
