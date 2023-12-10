@@ -17,33 +17,29 @@ export type solutionPayloadType = {
     chatID: number;
 };
 
-export class HomeworkScene {
+export class HomeworkSceneBuilder {
     controller: IHomeworkSceneController;
-    scenes = {
-        homeworks: {
-            name: 'homeworks',
-            description: 'Для просмотра домашних заданий и сдачи решений',
-        },
-    };
+    static readonly sceneName = 'homeworks';
+    static readonly sceneDescription = 'Для просмотра домашних заданий и сдачи решений';
 
     constructor(controller: IHomeworkSceneController) {
         this.controller = controller;
     }
 
-    initStage() {
+    build() {
         const chooseHomeworkStep = this.chooseHomeworkStep();
         const actionOnHomeworkStep = this.actionOnHomeworkStep();
         const sendSolutionStep = this.sendSolutionStep();
 
         const hwScene = new Scenes.WizardScene<CustomContext>(
-            this.scenes.homeworks.name,
+            HomeworkSceneBuilder.sceneName,
             this.startHomeworkStep.bind(this),
             chooseHomeworkStep,
             actionOnHomeworkStep,
             sendSolutionStep,
             this.replyExit.bind(this),
         );
-        return new Scenes.Stage<CustomContext>([hwScene]);
+        return hwScene;
     }
 
     private async startHomeworkStep(ctx: CustomContext) {
@@ -83,7 +79,7 @@ export class HomeworkScene {
                     'Упс, что-то пошло не так. Попробуйте позже.',
                     Markup.inlineKeyboard([]),
                 );
-                return this.replyExit(ctx);
+                return await this.replyExit(ctx);
             }
             ctx.wizard.state.targetHomeworkID = Number(ctx.match[1]);
             await ctx.editMessageText(
@@ -102,7 +98,7 @@ export class HomeworkScene {
             return ctx.wizard.next();
         });
         handler.on('message', async (ctx) => {
-            return this.replyExit(ctx);
+            return await this.replyExit(ctx);
         });
 
         return handler;
@@ -117,8 +113,8 @@ export class HomeworkScene {
             };
             await ctx.editMessageText(
                 'Всё, что ты отправишь, будет добавлено в твоё решение\\. Как закончешь, нажми на кнопку *Отправить 📦*\\.\n' +
-                    'Обязательно дождишь сообжения `Сохранено`, чтобы быть уверенным, что твоё сообщение добавится в решение\\.\n' +
-                    'Записываю \\.\\.\\.',
+                'Обязательно дождишь сообжения `Сохранено`, чтобы быть уверенным, что твоё сообщение добавится в решение\\.\n' +
+                'Записываю \\.\\.\\.',
                 {
                     parse_mode: 'MarkdownV2',
                     ...Markup.inlineKeyboard([
@@ -138,7 +134,7 @@ export class HomeworkScene {
                     'Упс, что-то пошло не так. Попробуйте позже.',
                     Markup.inlineKeyboard([]),
                 );
-                return this.replyExit(ctx);
+                return await this.replyExit(ctx);
             }
 
             await ctx.editMessageText(
@@ -161,10 +157,7 @@ export class HomeworkScene {
                             type: 'document',
                             caption:
                                 id === task.attachmenturlsList.length - 1
-                                    ? 'Задача №' +
-                                      (idx + 1) +
-                                      '\n' +
-                                      task.description
+                                    ? 'Задача №' + (idx + 1) + '\n' + task.description
                                     : undefined,
                         };
                     }),
@@ -173,15 +166,11 @@ export class HomeworkScene {
             return this.replyExit(ctx);
         });
         handler.action('exit', async (ctx) => {
-            const evilSay = await fetch(
-                'https://evilinsult.com/generate_insult.php',
-            )
-                .then((res) => {
-                    return res.text();
-                })
-                .catch(() => '');
-            await ctx.answerCbQuery(evilSay);
-            return this.replyExit(ctx);
+            await ctx.editMessageText(
+                'Выход из меню с домашними заданиями',
+                Markup.inlineKeyboard([]),
+            );
+            return await this.replyExit(ctx);
         });
         handler.on('message', async (ctx) => {
             return this.replyExit(ctx);
@@ -207,7 +196,7 @@ export class HomeworkScene {
             const fileID = ctx.message.photo.pop()?.file_id;
             if (fileID === undefined) {
                 logger.error('sendSolutionStep: fileID === undefined');
-                return this.replyExitWithError(ctx);
+                return await this.replyExitWithError(ctx);
             }
 
             if (ctx.message.caption) {
@@ -247,20 +236,13 @@ export class HomeworkScene {
                 'Эххх, решение не отправлено 😢',
                 Markup.inlineKeyboard([]),
             );
-            const evilSay = await fetch(
-                'https://evilinsult.com/generate_insult.php',
-            )
-                .then((res) => {
-                    return res.text();
-                })
-                .catch(() => '');
-            await ctx.answerCbQuery(evilSay);
-            return this.replyExit(ctx);
+            await this.evilQuery(ctx);
+            return await this.replyExit(ctx);
         });
         handler.on('message', async (ctx) => {
             await ctx.replyWithMarkdownV2(
                 'В качетсве решения можно отправить *файл*, *фотографию* и *текст*\n' +
-                    'Для выхода нажмите на кнопку *Выход*',
+                'Для выхода нажмите на кнопку *Выход*',
             );
         });
         return handler;
@@ -268,11 +250,22 @@ export class HomeworkScene {
 
     private async replyExitWithError(ctx: CustomContext) {
         await ctx.reply('Упс, что то пошло не так (╥﹏╥)');
-        return this.replyExit(ctx);
+        return await this.replyExit(ctx);
     }
 
     private async replyExit(ctx: CustomContext) {
         await ctx.reply('Возврат к обмену сообщениями.');
         return await ctx.scene.leave();
+    }
+
+    private async evilQuery(ctx: CustomContext) {
+        const evilSay = await fetch(
+            'https://evilinsult.com/generate_insult.php',
+        )
+            .then((res) => {
+                return res.text();
+            })
+            .catch(() => '');
+        await ctx.answerCbQuery(evilSay);
     }
 }

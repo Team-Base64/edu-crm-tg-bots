@@ -1,5 +1,5 @@
 import mime from 'mime';
-import { Context, Telegraf, session } from 'telegraf';
+import { Context, Scenes, Telegraf, session } from 'telegraf';
 import { message } from 'telegraf/filters';
 import {
     CustomContext,
@@ -12,7 +12,7 @@ import {
 } from '../../types/interfaces';
 import { dbInstance } from '../index';
 import {
-    HomeworkScene,
+    HomeworkSceneBuilder,
     IHomeworkSceneController,
     solutionPayloadType,
 } from '../scenes/homeworkScene';
@@ -43,11 +43,23 @@ type AttachType = {
 export default class SlaveBots implements IHomeworkSceneController {
     bots = new Map<string, Telegraf<CustomContext>>();
     controller: ISlaveBotController;
-    sceneBuilder: HomeworkScene;
+    scenesStage: Scenes.Stage<CustomContext>;
+    commands: { command: string, description: string; }[] = [
+        {
+            command: 'help',
+            description: 'Решения возможных проблем'
+        },
+        {
+            command: HomeworkSceneBuilder.sceneName,
+            description: HomeworkSceneBuilder.sceneDescription,
+        }
+    ];
 
     constructor(controller: ISlaveBotController) {
         this.controller = controller;
-        this.sceneBuilder = new HomeworkScene(this);
+        this.scenesStage = new Scenes.Stage<CustomContext>([
+            new HomeworkSceneBuilder(this).build()
+        ]);
 
         this.createBots()
             .then(() => {
@@ -76,21 +88,12 @@ export default class SlaveBots implements IHomeworkSceneController {
             this.addAuthMiddleware(bot);
 
             bot.use(session());
-            bot.use(this.sceneBuilder.initStage().middleware());
+            bot.use(this.scenesStage.middleware());
 
             bot.start(this.onStartCommand);
             bot.help(this.onHelpCommand);
 
-            bot.telegram.setMyCommands([
-                {
-                    command: 'help',
-                    description: 'Подсказки по пользованию нашим сервисом',
-                },
-                {
-                    command: this.sceneBuilder.scenes.homeworks.name,
-                    description: this.sceneBuilder.scenes.homeworks.description,
-                },
-            ]);
+            bot.telegram.setMyCommands(this.commands);
             this.addHomeworkCommandHandler(bot);
 
             this.addTextMessageHandler(bot);
@@ -129,33 +132,6 @@ export default class SlaveBots implements IHomeworkSceneController {
         logger.debug('sendMessage: ' + text);
     }
 
-    sendDocument({ botToken, telegramChatID }: SendMessageTo, text: string) {
-        this.getBot(botToken)
-            .telegram.sendDocument(telegramChatID, text)
-            .catch((error: string) => {
-                logger.error('sendDocument: ' + error);
-                this.getBot(botToken).telegram.sendMessage(
-                    telegramChatID,
-                    'Ошибка при отправке файла',
-                );
-            });
-        logger.debug('sendDocument: ' + text);
-    }
-
-    sendPhoto({ botToken, telegramChatID }: SendMessageTo, text: string) {
-        this.getBot(botToken)
-            .telegram.sendDocument(telegramChatID, text)
-            .catch((error: string) => {
-                logger.error('sendPhoto: ' + error);
-                this.getBot(botToken).telegram.sendMessage(
-                    telegramChatID,
-                    'Ошибка при отправке фото',
-                );
-            });
-
-        logger.debug('sendPhoto: ' + text);
-    }
-
     sendAttaches(
         { botToken, telegramChatID }: SendMessageTo,
         data: SendMessageData,
@@ -186,6 +162,57 @@ export default class SlaveBots implements IHomeworkSceneController {
             });
     }
 
+    async getHomeworks(ctx: CustomContext): Promise<Homework[]> {
+        if (ctx.message === undefined) {
+            logger.error('getHomeworksInClass: нет message');
+            await this.replyErrorMsg(ctx);
+            return [];
+        }
+
+        const classid = await dbInstance.getSlaveBotClassIdByChatId(
+            ctx.educrm.chatID,
+        );
+        if (typeof classid !== 'number') {
+            logger.error('addHomeworkCommandHandler: classid - ' + classid);
+            await this.replyErrorMsg(ctx);
+            return [];
+        }
+        return await this.controller
+            .getHomeworksInClass(classid)
+            .catch((error) => {
+                logger.error('addHomeworkCommandHandler: ' + error);
+                return [];
+            });
+    }
+
+    async sendSolution(solution: solutionPayloadType) {
+        const attachList: AttachType[] = [];
+        for (const rawFile of solution.files) {
+            const file = await this.prepareFileUpload(solution.token, rawFile);
+            if (file === undefined) {
+                logger.error('addDocumentMessageHandler: file === undefined');
+                continue;
+            }
+            file.fileLink = changeHttpsToHttp(file.fileLink);
+            attachList.push(file);
+        }
+        if (attachList.length !== solution.files.length) {
+            return false;
+        }
+
+        return await this.controller
+            .sendSolutionToClient({
+                homeworkID: solution.homeworkID,
+                data: {
+                    text: solution.text,
+                    attachList,
+                },
+                studentID: solution.studentID,
+            })
+            .then(() => true)
+            .catch(() => false);
+    }
+
     private async onStartCommand(ctx: CustomContext) {
         await ctx
             .reply('Все готово! Можете начинать общаться с преподавателем.')
@@ -195,8 +222,8 @@ export default class SlaveBots implements IHomeworkSceneController {
     private async onHelpCommand(ctx: CustomContext) {
         await ctx.replyWithMarkdownV2(
             'Добро пожаловать в TG бота сервиса EDUCRM\\!\n' +
-                'Важные замечания:\n' +
-                '\\- В нашем сервисе можно пожаловать только *картинки* и *pdf*',
+            'Важные замечания:\n' +
+            '\\- В нашем сервисе можно пожаловать только *картинки* и *pdf*',
         );
     }
 
@@ -381,70 +408,9 @@ export default class SlaveBots implements IHomeworkSceneController {
     }
 
     private addHomeworkCommandHandler(bot: Telegraf<CustomContext>) {
-        bot.command(this.sceneBuilder.scenes.homeworks.name, async (ctx) => {
-            ctx.scene.enter(this.sceneBuilder.scenes.homeworks.name);
+        bot.command(HomeworkSceneBuilder.sceneName, async (ctx) => {
+            ctx.scene.enter(HomeworkSceneBuilder.sceneName);
         });
-    }
-
-    async getHomeworks(ctx: CustomContext): Promise<Homework[]> {
-        if (ctx.message === undefined) {
-            logger.error('getHomeworksInClass: нет message');
-            await this.replyErrorMsg(ctx);
-            return [];
-        }
-
-        const classid = await dbInstance.getSlaveBotClassIdByChatId(
-            ctx.educrm.chatID,
-        );
-        if (typeof classid !== 'number') {
-            logger.error('addHomeworkCommandHandler: classid - ' + classid);
-            await this.replyErrorMsg(ctx);
-            return [];
-        }
-        return await this.controller
-            .getHomeworksInClass(classid)
-            .catch((error) => {
-                logger.error('addHomeworkCommandHandler: ' + error);
-                return [];
-            });
-    }
-
-    async sendSolution(solution: solutionPayloadType) {
-        // const file = await this.prepareFileUpload(solution.token, {
-        //     fileID: solution.file.fileID,
-        //     fileName: solution.file.fileName,
-        //     mimeType: solution.file.mimeType
-        // });
-        // if (file === undefined) {
-        //     logger.error('addDocumentMessageHandler: file === undefined');
-        //     return false;
-        // }
-
-        const attachList: AttachType[] = [];
-        for (const rawFile of solution.files) {
-            const file = await this.prepareFileUpload(solution.token, rawFile);
-            if (file === undefined) {
-                logger.error('addDocumentMessageHandler: file === undefined');
-                continue;
-            }
-            file.fileLink = changeHttpsToHttp(file.fileLink);
-            attachList.push(file);
-        }
-        if (attachList.length !== solution.files.length) {
-            return false;
-        }
-
-        return await this.controller
-            .sendSolutionToClient({
-                homeworkID: solution.homeworkID,
-                data: {
-                    text: solution.text,
-                    attachList,
-                },
-                studentID: solution.studentID,
-            })
-            .then(() => true)
-            .catch(() => false);
     }
 
     private async prepareFileUpload(

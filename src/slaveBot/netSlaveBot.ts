@@ -119,7 +119,7 @@ export default class NetSlaveBot implements ISlaveBotController {
         });
     }
 
-    sendSolutionToClient(message: ProtoSolution) {
+    async sendSolutionToClient(message: ProtoSolution) {
         logger.info(
             `sendSolutionToClient: homeworkID = ${message.homeworkID}, studentID = ${message.studentID}`,
         );
@@ -144,25 +144,23 @@ export default class NetSlaveBot implements ISlaveBotController {
             });
         });
 
-        return Promise.all(promiseAttachList).then((attachList) => {
-            const request = new SendSolutionRequest();
-            request.setHomeworkid(message.homeworkID);
-            request.setStudentid(message.studentID);
-            const solData = new SolutionData();
-            solData.setText(message.data.text);
-            solData.setAttachmenturlsList(attachList);
-            request.setSolution(solData);
-            return new Promise<void>((resolve, reject) => {
-                client.sendSolution(request, (error) => {
-                    if (error) {
-                        logger.error(
-                            'sendSolutionToClient, sendSolution: ' + error,
-                        );
-                        reject();
-                    } else {
-                        resolve();
-                    }
-                });
+        const attachList = await Promise.all(promiseAttachList);
+        const request_2 = new SendSolutionRequest();
+        request_2.setHomeworkid(message.homeworkID);
+        request_2.setStudentid(message.studentID);
+        const solData = new SolutionData();
+        solData.setText(message.data.text);
+        solData.setAttachmenturlsList(attachList);
+        request_2.setSolution(solData);
+        return await new Promise<void>((resolve_1, reject_1) => {
+            client.sendSolution(request_2, (error_1) => {
+                if (error_1) {
+                    logger.error(
+                        'sendSolutionToClient, sendSolution: ' + error_1);
+                    reject_1();
+                } else {
+                    resolve_1();
+                }
             });
         });
     }
