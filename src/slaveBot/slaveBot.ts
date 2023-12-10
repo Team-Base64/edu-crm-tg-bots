@@ -20,10 +20,7 @@ import { RuntimeError, logger } from '../utils/logger';
 import { changeHttpsToHttp } from '../utils/url';
 
 export interface ISlaveBotController {
-    sendMessageToClient: (
-        message: ProtoMessageBase,
-        sendMessageTo: SendMessageTo,
-    ) => boolean;
+    sendMessageToClient: (message: ProtoMessageBase) => void;
     sendMessageWithAttachToClient: (message: ProtoMessageSend) => Promise<void>;
     getHomeworksInClass: (classID: number) => Promise<Homework[]>;
     sendSolutionToClient: (message: ProtoSolution) => Promise<void>;
@@ -52,6 +49,10 @@ export default class SlaveBots implements IHomeworkSceneController {
         {
             command: HomeworkSceneBuilder.sceneName,
             description: HomeworkSceneBuilder.sceneDescription,
+        },
+        {
+            command: 'events',
+            description: 'Показать ближайшие занятия'
         }
     ];
 
@@ -232,30 +233,25 @@ export default class SlaveBots implements IHomeworkSceneController {
             ctx.educrm ??= {
                 chatID: -1,
                 studentID: -1,
+                classID: -1,
             };
             if (ctx.chat) {
-                const chatID =
-                    await dbInstance.getSlaveBotChatIdByUserIdAndToken(
+                const info =
+                    await dbInstance.getSlaveBotInfoByUserIdAndToken(
                         ctx.chat.id,
                         ctx.telegram.token,
                     );
+                if (typeof info === 'undefined') {
+                    return ctx.reply(
+                        'Этот бот не зарегистрирован для Вас. Продолжите работу в мастер боте - https://t.me/educrmmaster2bot',
+                    );
+                }
 
-                switch (typeof chatID) {
+                switch (typeof info.chatID) {
                     case 'object': {
-                        const userInfo =
-                            await dbInstance.getStudentAndClassIdByUserIdAndToken(
-                                ctx.chat.id,
-                                ctx.telegram.token,
-                            );
-                        if (userInfo === undefined) {
-                            logger.error(
-                                'AuthMiddleware, getStudentAndClassIdByUserIdAndToken: userInfo === undefined',
-                            );
-                            return this.replyErrorMsg(ctx);
-                        }
                         const newChatID = await this.controller.createChat(
-                            userInfo.studentID,
-                            userInfo.classID,
+                            info.studentID,
+                            info.classID,
                         );
                         if (newChatID === -1) {
                             logger.error(
@@ -266,8 +262,8 @@ export default class SlaveBots implements IHomeworkSceneController {
                         if (
                             !(await dbInstance.updateChatIdInByStudentAndClassId(
                                 newChatID,
-                                userInfo.studentID,
-                                userInfo.classID,
+                                info.studentID,
+                                info.classID,
                             ))
                         ) {
                             logger.error(
@@ -276,31 +272,15 @@ export default class SlaveBots implements IHomeworkSceneController {
                             return this.replyErrorMsg(ctx);
                         }
                         ctx.educrm.chatID = newChatID;
-                        ctx.educrm.studentID = userInfo.studentID;
                         break;
                     }
                     case 'number': {
-                        ctx.educrm.chatID = chatID;
-                        const studentID =
-                            await dbInstance.getStudentIdByChatId(chatID);
-                        if (typeof studentID == 'number') {
-                            ctx.educrm.studentID = studentID;
-                        } else {
-                            logger.error(
-                                'AuthMiddleware, getStudentIdByChatId: studentID === undefined',
-                            );
-                            return this.replyErrorMsg(ctx);
-                        }
+                        ctx.educrm.chatID = info.chatID;
                         break;
                     }
-                    case 'undefined':
-                        logger.error(
-                            'AuthMiddleware, getSlaveBotChatIdByUserIdAndToken: chatID === undefinded',
-                        );
-                        return ctx.reply(
-                            'Этот бот не зарегистрирован для Вас. Продолжите работу в мастер боте - https://t.me/educrmmaster2bot',
-                        );
                 }
+                ctx.educrm.studentID = info.studentID;
+                ctx.educrm.classID = info.classID;
             }
             return next();
         });
@@ -308,26 +288,10 @@ export default class SlaveBots implements IHomeworkSceneController {
 
     private addTextMessageHandler(bot: Telegraf<CustomContext>) {
         bot.on(message('text'), async (ctx) => {
-            const sendMessageTo =
-                await dbInstance.getSlaveBotTokenAndUserIdByChatId(
-                    ctx.educrm.chatID,
-                );
-            if (sendMessageTo) {
-                this.controller.sendMessageToClient(
-                    {
-                        chatid: ctx.educrm.chatID,
-                        text: ctx.message.text,
-                    },
-                    sendMessageTo,
-                );
-                logger.debug(
-                    'slave, #onTextMessage, text: ' + ctx.message.text,
-                );
-            } else {
-                ctx.reply('Возникла ошибка, попробуйте позже').catch((error) =>
-                    logger.error('#onTextMessage, no sendMessageTo: ' + error),
-                );
-            }
+            this.controller.sendMessageToClient({
+                chatid: ctx.educrm.chatID,
+                text: ctx.message.text,
+            });
         });
     }
 
@@ -408,7 +372,7 @@ export default class SlaveBots implements IHomeworkSceneController {
     }
 
     private addHomeworkCommandHandler(bot: Telegraf<CustomContext>) {
-        bot.command(HomeworkSceneBuilder.sceneName, async (ctx) => {
+        bot.command(this.commands[1].command, async (ctx) => {
             ctx.scene.enter(HomeworkSceneBuilder.sceneName);
         });
     }

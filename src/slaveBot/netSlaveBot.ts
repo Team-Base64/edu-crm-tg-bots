@@ -52,7 +52,6 @@ export default class NetSlaveBot implements ISlaveBotController {
         request.setText(message.text);
         request.setChatid(message.chatid);
         streamInstance.self.write(request);
-        return true;
     }
 
     async getHomeworksInClass(classid: number) {

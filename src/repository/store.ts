@@ -212,22 +212,26 @@ export class Store {
             });
     }
 
-    async getSlaveBotChatIdByUserIdAndToken(userid: number, token: string) {
+    async getSlaveBotInfoByUserIdAndToken(userid: number, token: string) {
         return this.#db
             .query(
-                `select users.chat_id
+                `select users.chat_id, users.student_id, users.class_id
                  from users INNER JOIN bots ON users.bot_id = bots.id
                  where users.user_id = $1 AND bots.token = $2;`,
                 [userid, token],
             )
             .then((data) => {
                 if (data.rows.length === 0) {
-                    postgresLogger.error(
-                        'getSlaveBotChatIdByUserIdAndToken not found',
+                    postgresLogger.debug(
+                        'getSlaveBotInfoByUserIdAndToken not found',
                     );
                     return undefined;
                 }
-                return data.rows[0].chat_id as number | null;
+                return {
+                    chatID: data.rows[0].chat_id as number | null,
+                    studentID: data.rows[0].student_id as number,
+                    classID: data.rows[0].class_id as number,
+                };
             })
             .catch((error) => {
                 postgresLogger.error('getSlaveBotChatIdByUserId: ' + error);
@@ -280,10 +284,6 @@ export class Store {
             });
     }
 
-    // public async insertChatIdToUser(chatID: number, userID: number) {
-
-    // };
-
     async unlinkBot(linkToBot: string) {
         return this.#db
             .query(
@@ -318,37 +318,6 @@ export class Store {
             })
             .catch((error) => {
                 postgresLogger.error('getStudentIdByChatId: ' + error);
-                return undefined;
-            });
-    }
-
-    public async getStudentAndClassIdByUserIdAndToken(
-        userid: number,
-        token: string,
-    ) {
-        return this.#db
-            .query(
-                `select users.student_id, users.class_id
-                 from users INNER JOIN bots ON users.bot_id = bots.id
-                 where users.user_id = $1 AND bots.token = $2;`,
-                [userid, token],
-            )
-            .then((data) => {
-                if (data.rows.length === 0) {
-                    postgresLogger.error(
-                        'getStudentAndClassIdByUserIdAndToken not found',
-                    );
-                    return undefined;
-                }
-                return {
-                    studentID: data.rows[0].student_id as number,
-                    classID: data.rows[0].class_id as number,
-                };
-            })
-            .catch((error) => {
-                postgresLogger.error(
-                    'getStudentAndClassIdByUserIdAndToken: ' + error,
-                );
                 return undefined;
             });
     }

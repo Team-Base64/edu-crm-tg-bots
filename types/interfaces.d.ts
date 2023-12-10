@@ -50,6 +50,7 @@ export interface CustomContext extends Context<Update> {
     educrm: {
         chatID: number;
         studentID: number;
+        classID: number;
     };
 }
 
@@ -65,7 +66,7 @@ export interface Homework {
     tasks: Task[];
 }
 
-export type RawFileType = {
+export interface RawFileType {
     fileID: string;
     fileName?: string;
     mimeType?: string;
