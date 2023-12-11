@@ -226,7 +226,7 @@ export class HomeworkSceneBuilder {
                 chatID: ctx.educrm.chatID,
             });
             if (!res) {
-                return this.replyExitWithError(ctx);
+                return await this.replyExitWithError(ctx);
             }
             await ctx.reply('Решение отправлено!');
             return this.replyExit(ctx);

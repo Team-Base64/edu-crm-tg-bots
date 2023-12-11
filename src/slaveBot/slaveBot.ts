@@ -397,10 +397,13 @@ export default class SlaveBots implements IHomeworkSceneController {
                 msg += `${idx + 1}\\. ${this.escapeForMDV2(event.title)}\n`;
                 msg += `Описание: ${this.escapeForMDV2(event.description)}\n`;
                 const startDate = new Date(event.startDate);
-                const endDate = new Date(event.endDate);
+                const duration = Math.abs(Date.parse(event.endDate) - Date.parse(event.startDate));
 
-                msg += `Дата занятия: ${this.escapeForMDV2(startDate.toISOString())}\n`;
-                msg += `Продолжительность: ${this.escapeForMDV2(endDate.toISOString())}\n`;
+                msg += `Дата занятия: ${this.escapeForMDV2(startDate
+                    .toLocaleString('ru-RU', { timeZone: "Europe/Moscow" })
+                    .slice(0, -3)
+                    .replace(',', ' в'))} по МСК\n`;
+                msg += `Продолжительность: ${new Date(duration).getHours()}:${new Date(duration).getMinutes()}\n`;
                 msg += '\n';
             });
             return await ctx.replyWithMarkdownV2(msg.slice(0, -2));
