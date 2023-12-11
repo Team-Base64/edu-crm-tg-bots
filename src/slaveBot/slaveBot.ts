@@ -274,6 +274,10 @@ export default class SlaveBots implements IHomeworkSceneController {
                             );
                             return this.replyErrorMsg(ctx);
                         }
+                        this.controller.sendMessageToClient({
+                            chatid: newChatID,
+                            text: 'Ученик присоединился к классу!'
+                        });
                         ctx.educrm.chatID = newChatID;
                         break;
                     }
