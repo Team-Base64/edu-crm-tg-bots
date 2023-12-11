@@ -394,20 +394,31 @@ export default class SlaveBots implements IHomeworkSceneController {
                     return [];
                 });
             if (events.length === 0) {
-                return await ctx.replyWithMarkdownV2('Вам не назначены занятия в ближайшие 2 недели');
+                return await ctx.replyWithMarkdownV2('В этом классе занятия пока не запланированы');
             }
             let msg = 'Ближайшие занятия:\n';
             events.forEach((event, idx) => {
                 msg += `${idx + 1}\\. ${this.escapeForMDV2(event.title)}\n`;
                 msg += `Описание: ${this.escapeForMDV2(event.description)}\n`;
                 const startDate = new Date(event.startDate);
-                const duration = Math.abs(Date.parse(event.endDate) - Date.parse(event.startDate));
+                const durationDate = new Date(Math.abs(Date.parse(event.endDate) - Date.parse(event.startDate)));
+                const duration =
+                    (durationDate.getHours() < 10 ? '0' : '')
+                    +
+                    durationDate.getHours()
+                    +
+                    ':'
+                    +
+                    (durationDate.getMinutes() < 10 ? '0' : '')
+                    +
+                    durationDate.getMinutes()
+                    ;
 
                 msg += `Дата занятия: ${this.escapeForMDV2(startDate
                     .toLocaleString('ru-RU', { timeZone: "Europe/Moscow" })
                     .slice(0, -3)
                     .replace(',', ' в'))} по МСК\n`;
-                msg += `Продолжительность: ${new Date(duration).getHours()}:${new Date(duration).getMinutes()}\n`;
+                msg += `Продолжительность: ${duration}\n`;
                 msg += '\n';
             });
             return await ctx.replyWithMarkdownV2(msg.slice(0, -2));
