@@ -382,7 +382,13 @@ export default class SlaveBots implements IHomeworkSceneController {
 
     private addEventCommandHandler(bot: Telegraf<CustomContext>) {
         bot.command(this.commands[2].command, async (ctx) => {
-            const events = await this.controller.getEvents(ctx.educrm.classID);
+            const events = await this.controller.getEvents(ctx.educrm.classID)
+                .catch(err => {
+                    logger.error(
+                        'addEventCommandHandler, getEvents: ', err
+                    );
+                    return [];
+                });
             if (events.length === 0) {
                 return await ctx.replyWithMarkdownV2('Вам не назначены занятия в ближайшие 2 недели');
             }
@@ -402,8 +408,7 @@ export default class SlaveBots implements IHomeworkSceneController {
     }
 
     private escapeForMDV2(input: string): string {
-        const specialChars = '_*[]()~`>#+=|{}.!-';
-        return input.replace(new RegExp(`([${specialChars}])`, 'g'), '\\$1');
+        return input.replace(/([_*\[\]()~`>#+=|{}.!-])/g, '\\$1');
     }
 
     private async prepareFileUpload(

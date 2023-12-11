@@ -191,7 +191,7 @@ export default class NetSlaveBot implements ISlaveBotController {
             client.getEvents(request, (err, response) => {
                 if (err) {
                     logger.error('getEvents:  ', err);
-                    return reject([]);
+                    return reject(err);
                 }
                 const events = response.getEventsList().map<Event>(
                     eventData => {
