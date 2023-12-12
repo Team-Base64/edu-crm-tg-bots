@@ -1,6 +1,8 @@
 import { Composer, Markup, Scenes } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { CustomContext, Homework, RawFile } from '../../types/interfaces';
+import { MEDIA_GROUP_WAIT } from '../utils/configs';
+import { dateToString } from '../utils/date';
 import { logger } from '../utils/logger';
 
 export interface IHomeworkSceneController {
@@ -110,10 +112,11 @@ export class HomeworkSceneBuilder {
             ctx.wizard.state.curretSolution ??= {
                 text: '',
                 rawAttachList: [],
+                isWaitGroup: false
             };
             await ctx.editMessageText(
-                'Всё, что ты отправишь, будет добавлено в твоё решение\\. Как закончешь, нажми на кнопку *Отправить 📦*\\.\n' +
-                'Обязательно дождишь сообжения `Сохранено`, чтобы быть уверенным, что твоё сообщение добавится в решение\\.\n' +
+                'Всё, что вы отправите, будет добавлено в ваше решение\\. По завершению, нажмите на кнопку *Отправить 📦*\\.\n' +
+                'Обязательно дождиcь ответа *Сохранено* на каждое ваше сообщение, чтобы быть уверенным, что оно добавилось в решение\\.\n' +
                 'Записываю \\.\\.\\.',
                 {
                     parse_mode: 'MarkdownV2',
@@ -138,7 +141,10 @@ export class HomeworkSceneBuilder {
             }
 
             await ctx.editMessageText(
-                'Полное условие ДЗ ' + hw.title + '\n' + hw.description,
+                'Полное условие ДЗ ' + hw.title + '\n' +
+                hw.description + '\n' +
+                'Дата выдачи: ' + dateToString(hw.createDate) + "\n" +
+                'Срок сдачи: ' + dateToString(hw.deadlineDate),
                 Markup.inlineKeyboard([]),
             );
 
@@ -180,17 +186,29 @@ export class HomeworkSceneBuilder {
 
     private sendSolutionStep(): Composer<CustomContext> {
         const handler = new Composer<CustomContext>();
-        handler.on(message('document'), async (ctx) => {
-            if (ctx.message.caption) {
-                ctx.wizard.state.curretSolution.text +=
-                    ctx.message.caption + '\n';
+        handler.on(message('photo', 'media_group_id'), async (ctx) => {
+            if (!ctx.wizard.state.curretSolution.isWaitGroup) {
+                ctx.wizard.state.curretSolution.isWaitGroup = true;
+                setTimeout(
+                    async () => {
+                        ctx.wizard.state.curretSolution.isWaitGroup = false;
+                        await ctx.reply('Сохранено');
+                    },
+                    MEDIA_GROUP_WAIT
+                );
+            }
+            const fileID = ctx.message.photo.pop()?.file_id;
+            if (fileID === undefined) {
+                logger.error('sendSolutionStep: fileID === undefined');
+                return await this.replyExitWithError(ctx);
             }
             ctx.wizard.state.curretSolution.rawAttachList.push({
-                fileID: ctx.message.document.file_id,
-                fileName: ctx.message.document.file_name,
-                mimeType: ctx.message.document.mime_type,
+                fileID: fileID,
             });
-            await ctx.reply('Сохранено');
+
+            if (ctx.message.caption) {
+                ctx.wizard.state.curretSolution.text += ctx.message.caption + '\n';
+            }
         });
         handler.on(message('photo'), async (ctx) => {
             const fileID = ctx.message.photo.pop()?.file_id;
@@ -200,12 +218,47 @@ export class HomeworkSceneBuilder {
             }
 
             if (ctx.message.caption) {
-                ctx.wizard.state.curretSolution.text +=
-                    ctx.message.caption + '\n';
+                ctx.wizard.state.curretSolution.text += ctx.message.caption + '\n';
             }
             ctx.wizard.state.curretSolution.rawAttachList.push({
                 fileID: fileID,
             });
+
+            await ctx.reply('Сохранено');
+        });
+        handler.on(message('document', 'media_group_id'), async (ctx) => {
+            if (!ctx.wizard.state.curretSolution.isWaitGroup) {
+                ctx.wizard.state.curretSolution.isWaitGroup = true;
+                setTimeout(
+                    async () => {
+                        ctx.wizard.state.curretSolution.isWaitGroup = false;
+                        await ctx.reply('Сохранено');
+                    },
+                    MEDIA_GROUP_WAIT
+                );
+            }
+
+            ctx.wizard.state.curretSolution.rawAttachList.push({
+                fileID: ctx.message.document.file_id,
+                fileName: ctx.message.document.file_name,
+                mimeType: ctx.message.document.mime_type,
+            });
+
+            if (ctx.message.caption) {
+                ctx.wizard.state.curretSolution.text += ctx.message.caption + '\n';
+            }
+        });
+        handler.on(message('document'), async (ctx) => {
+            ctx.wizard.state.curretSolution.rawAttachList.push({
+                fileID: ctx.message.document.file_id,
+                fileName: ctx.message.document.file_name,
+                mimeType: ctx.message.document.mime_type,
+            });
+
+            if (ctx.message.caption) {
+                ctx.wizard.state.curretSolution.text += ctx.message.caption + '\n';
+            }
+
             await ctx.reply('Сохранено');
         });
         handler.on(message('text'), async (ctx) => {
@@ -228,7 +281,11 @@ export class HomeworkSceneBuilder {
             if (!res) {
                 return await this.replyExitWithError(ctx);
             }
-            await ctx.reply('Решение отправлено!');
+            await ctx.answerCbQuery('Решение отправлено!');
+            await ctx.editMessageText(
+                'Решение отправлено!',
+                Markup.inlineKeyboard([]),
+            );
             return this.replyExit(ctx);
         });
         handler.action('exit', async (ctx) => {

@@ -28,7 +28,9 @@ message HomeworkData {
     int32 homeworkID = 1;
     string title = 2;
     string description = 3;
-    repeated TaskData tasks = 4;
+    string createDate = 4;
+    string deadlineDate = 5;
+    repeated TaskData tasks = 6;
 }
 
 message GetHomeworksRequest {

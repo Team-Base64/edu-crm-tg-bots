@@ -5,6 +5,7 @@ import {
     CustomContext,
     Event,
     Homework,
+    ProtoAttach,
     ProtoMessageBase,
     ProtoMessageSend,
     ProtoSolution,
@@ -17,6 +18,8 @@ import {
     IHomeworkSceneController,
     solutionPayloadType,
 } from '../scenes/homeworkScene';
+import { MEDIA_GROUP_WAIT } from '../utils/configs';
+import { dateToString } from '../utils/date';
 import { RuntimeError, logger } from '../utils/logger';
 import { changeHttpsToHttp } from '../utils/url';
 
@@ -32,11 +35,6 @@ export interface ISlaveBotController {
 export type SendMessageData = {
     text?: string;
     atachList: string[];
-};
-
-type AttachType = {
-    fileLink: string;
-    mimeType: string;
 };
 
 export default class SlaveBots implements IHomeworkSceneController {
@@ -57,6 +55,9 @@ export default class SlaveBots implements IHomeworkSceneController {
             description: 'Показать ближайшие занятия'
         }
     ];
+    // photoGroupCache = new Map<string, string[]>();
+    // docGroupCache = new Map<string, { fileID: string, fileName?: string, mimeType?: string; }[]>();
+    attachGroupCache = new Map<string, RawFile[]>();
 
     constructor(controller: ISlaveBotController) {
         this.controller = controller;
@@ -190,7 +191,7 @@ export default class SlaveBots implements IHomeworkSceneController {
     }
 
     async sendSolution(solution: solutionPayloadType) {
-        const attachList: AttachType[] = [];
+        const attachList: ProtoAttach[] = [];
         for (const rawFile of solution.files) {
             const file = await this.prepareFileUpload(solution.token, rawFile);
             if (file === undefined) {
@@ -303,78 +304,162 @@ export default class SlaveBots implements IHomeworkSceneController {
     }
 
     private addPhotoMessageHandler(bot: Telegraf<CustomContext>) {
-        bot.on(message('photo'), async (ctx) => {
-            if (ctx.message && ctx.message.photo) {
-                const fileID = ctx.message.photo.pop()?.file_id;
-                if (fileID === undefined) {
-                    logger.error(
-                        'addPhotoMessageHandler: fileID === undefined',
-                    );
-                    return this.replyErrorMsg(ctx);
-                }
-                const file = await this.prepareFileUpload(ctx.telegram.token, {
-                    fileID,
-                });
-                if (file === undefined) {
-                    logger.error('addPhotoMessageHandler: file === undefined');
-                    return this.replyErrorMsg(ctx);
-                }
+        bot.on(message('photo', 'media_group_id'), (ctx) => {
+            const groupID = ctx.chat.id + '-' + ctx.message.media_group_id;
+            let attachList = this.attachGroupCache.get(groupID);
+            if (attachList === undefined) {
+                this.attachGroupCache.set(groupID, []);
+                setTimeout(
+                    async () => {
+                        const attachList: ProtoAttach[] = [];
+                        const files = this.attachGroupCache.get(groupID)!;
+                        for (const rawFile of files) {
+                            const file = await this.prepareFileUpload(ctx.telegram.token, rawFile);
+                            if (file === undefined) {
+                                logger.error('addPhotoMessageHandler: file === undefined');
+                                continue;
+                            }
+                            file.fileLink = changeHttpsToHttp(file.fileLink);
+                            attachList.push(file);
+                        }
+                        this.controller
+                            .sendMessageWithAttachToClient({
+                                chatid: ctx.educrm.chatID,
+                                text: ctx.message.caption ?? '',
+                                attachList,
+                            })
+                            .catch(() => {
+                                logger.error(
+                                    'addPhotoMessageHandler: sendMessageWithAttachToClient error',
+                                );
+                            });
+                        this.attachGroupCache.delete(groupID);
+                    },
+                    MEDIA_GROUP_WAIT
+                );
+                attachList = [];
+            }
 
-                await this.controller
-                    .sendMessageWithAttachToClient({
-                        chatid: ctx.educrm.chatID,
-                        text: ctx.message.caption ?? '',
-                        file: {
-                            mimeType: file.mimeType,
-                            fileLink: changeHttpsToHttp(file.fileLink),
-                        },
-                    })
-                    .catch(() => {
-                        logger.error(
-                            'addPhotoMessageHandler: sendMessageWithAttachToClient error',
-                        );
-                        return this.replyErrorMsg(ctx);
-                    });
-            } else {
-                logger.error('addPhotoMessageHandler: no message or photo');
+            const fileID = ctx.message.photo.pop()?.file_id;
+            if (fileID === undefined) {
+                logger.error(
+                    'addPhotoMessageHandler: fileID === undefined',
+                );
+                return;
+            }
+            attachList.push({ fileID });
+
+            this.attachGroupCache.set(groupID, attachList);
+        });
+
+        bot.on(message('photo'), async (ctx) => {
+            const fileID = ctx.message.photo.pop()?.file_id;
+            if (fileID === undefined) {
+                logger.error(
+                    'addPhotoMessageHandler: fileID === undefined',
+                );
                 return this.replyErrorMsg(ctx);
             }
+            const file = await this.prepareFileUpload(ctx.telegram.token, {
+                fileID,
+            });
+            if (file === undefined) {
+                logger.error('addPhotoMessageHandler: file === undefined');
+                return this.replyErrorMsg(ctx);
+            }
+
+            await this.controller
+                .sendMessageWithAttachToClient({
+                    chatid: ctx.educrm.chatID,
+                    text: ctx.message.caption ?? '',
+                    attachList: [{
+                        mimeType: file.mimeType,
+                        fileLink: changeHttpsToHttp(file.fileLink),
+                    }],
+                })
+                .catch(() => {
+                    logger.error(
+                        'addPhotoMessageHandler: sendMessageWithAttachToClient error',
+                    );
+                    return this.replyErrorMsg(ctx);
+                });
         });
+
     }
 
     private addDocumentMessageHandler(bot: Telegraf<CustomContext>) {
+        bot.on(message('document', 'media_group_id'), async (ctx) => {
+            const groupID = ctx.chat.id + '-' + ctx.message.media_group_id;
+            let attachList = this.attachGroupCache.get(groupID);
+            if (attachList === undefined) {
+                this.attachGroupCache.set(groupID, []);
+                setTimeout(
+                    async () => {
+                        const attachList: ProtoAttach[] = [];
+                        const files = this.attachGroupCache.get(groupID)!;
+                        for (const rawFile of files) {
+                            const file = await this.prepareFileUpload(ctx.telegram.token, rawFile);
+                            if (file === undefined) {
+                                logger.error('addDocumentMessageHandler: file === undefined');
+                                continue;
+                            }
+                            file.fileLink = changeHttpsToHttp(file.fileLink);
+                            attachList.push(file);
+                        }
+                        this.controller
+                            .sendMessageWithAttachToClient({
+                                chatid: ctx.educrm.chatID,
+                                text: ctx.message.caption ?? '',
+                                attachList,
+                            })
+                            .catch(() => {
+                                logger.error(
+                                    'addDocumentMessageHandler: sendMessageWithAttachToClient error',
+                                );
+                            });
+                        this.attachGroupCache.delete(groupID);
+                    },
+                    MEDIA_GROUP_WAIT
+                );
+                attachList = [];
+            }
+            attachList.push({
+                fileID: ctx.message.document.file_id,
+                fileName: ctx.message.document.file_name,
+                mimeType: ctx.message.document.mime_type,
+            });
+
+            this.attachGroupCache.set(groupID, attachList);
+        });
+
         bot.on(message('document'), async (ctx) => {
-            if (ctx.message && ctx.message.document) {
-                const file = await this.prepareFileUpload(ctx.telegram.token, {
-                    fileID: ctx.message.document.file_id,
-                    fileName: ctx.message.document.file_name,
-                    mimeType: ctx.message.document.mime_type,
-                });
-                if (file === undefined) {
+            const file = await this.prepareFileUpload(ctx.telegram.token, {
+                fileID: ctx.message.document.file_id,
+                fileName: ctx.message.document.file_name,
+                mimeType: ctx.message.document.mime_type,
+            });
+            if (file === undefined) {
+                logger.error(
+                    'addDocumentMessageHandler: file === undefined',
+                );
+                return this.replyErrorMsg(ctx);
+            }
+
+            await this.controller
+                .sendMessageWithAttachToClient({
+                    chatid: ctx.educrm.chatID,
+                    text: ctx.message.caption ?? '',
+                    attachList: [{
+                        mimeType: file.mimeType,
+                        fileLink: changeHttpsToHttp(file.fileLink),
+                    }],
+                })
+                .catch(() => {
                     logger.error(
-                        'addDocumentMessageHandler: file === undefined',
+                        'addDocumentMessageHandler: sendMessageWithAttachToClient error',
                     );
                     return this.replyErrorMsg(ctx);
-                }
-
-                await this.controller
-                    .sendMessageWithAttachToClient({
-                        chatid: ctx.educrm.chatID,
-                        text: ctx.message.caption ?? '',
-                        file: {
-                            mimeType: file.mimeType,
-                            fileLink: changeHttpsToHttp(file.fileLink),
-                        },
-                    })
-                    .catch(() => {
-                        logger.error(
-                            'addDocumentMessageHandler: sendMessageWithAttachToClient error',
-                        );
-                        return this.replyErrorMsg(ctx);
-                    });
-            } else {
-                logger.warn('addDocumentMessageHandler: no message');
-            }
+                });
         });
     }
 
@@ -414,10 +499,7 @@ export default class SlaveBots implements IHomeworkSceneController {
                     durationDate.getMinutes()
                     ;
 
-                msg += `Дата занятия: ${this.escapeForMDV2(startDate
-                    .toLocaleString('ru-RU', { timeZone: "Europe/Moscow" })
-                    .slice(0, -3)
-                    .replace(',', ' в'))} по МСК\n`;
+                msg += `Дата занятия: ${this.escapeForMDV2(dateToString(startDate))}\n`;
                 msg += `Продолжительность: ${duration}\n`;
                 msg += '\n';
             });
@@ -432,7 +514,7 @@ export default class SlaveBots implements IHomeworkSceneController {
     private async prepareFileUpload(
         token: string,
         file: RawFile,
-    ): Promise<AttachType | undefined> {
+    ): Promise<ProtoAttach | undefined> {
         const fileLink = await this.getBot(token)
             .telegram.getFileLink(file.fileID)
             .then((url) => url.toString())

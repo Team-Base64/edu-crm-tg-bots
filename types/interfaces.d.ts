@@ -21,7 +21,7 @@ export interface ProtoAttach {
 }
 
 export interface ProtoMessageSend extends ProtoMessageBase {
-    file: ProtoAttach;
+    attachList: ProtoAttach[];
 }
 
 export interface ProtoSolutionData {
@@ -44,6 +44,7 @@ export interface CustomContext extends Context<Update> {
             curretSolution: {
                 text: string;
                 rawAttachList: RawFile[];
+                isWaitGroup: boolean;
             };
         };
     };
@@ -52,6 +53,7 @@ export interface CustomContext extends Context<Update> {
         studentID: number;
         classID: number;
     };
+
 }
 
 export interface Task {
@@ -63,6 +65,8 @@ export interface Homework {
     homeworkid: number;
     title: string;
     description: string;
+    createDate: Date;
+    deadlineDate: Date;
     tasks: Task[];
 }
 
