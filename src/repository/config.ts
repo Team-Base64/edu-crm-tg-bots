@@ -16,5 +16,4 @@ const postgresConfig: ClientConfig = {
 };
 
 console.log('postgresConfig:', postgresConfig);
-
 export default postgresConfig;

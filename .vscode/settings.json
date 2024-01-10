@@ -1,0 +1,4 @@
+{
+    "sql-formatter.linesBetweenQueries": 3,
+    "sql-formatter.uppercase": true,
+}

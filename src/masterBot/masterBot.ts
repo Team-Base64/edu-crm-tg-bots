@@ -49,7 +49,7 @@ export default class MasterBot {
         this.registerWeb = registerWeb;
 
         this.uploadAvatar = uploadAvatar;
-
+          
         this.slaveBotBalancer = new SlaveBotBalancer();
 
         this.bot = new Telegraf(token);
