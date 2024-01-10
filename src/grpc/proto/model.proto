@@ -100,7 +100,7 @@ message GetEventsResponse {
     repeated EventData events = 1;
 }
 
-service BotChat {
+service Chat {
     rpc StartChatTG(stream Message) returns (stream Message);
 
     rpc UploadFile(FileUploadRequest) returns (FileUploadResponse);

@@ -1,8 +1,8 @@
 import { credentials } from '@grpc/grpc-js';
-import { BotChatClient } from './proto/model_grpc_pb';
 import { CLIENT_HOST_TG_BOT } from '../config/envs';
+import { ChatClient } from './proto/model_grpc_pb';
 
-const client = new BotChatClient(
+const client = new ChatClient(
     CLIENT_HOST_TG_BOT,
     credentials.createInsecure(),
 );
