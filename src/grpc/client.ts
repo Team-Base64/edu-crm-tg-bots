@@ -1,9 +1,10 @@
-const grpc = require('@grpc/grpc-js');
-const services = require('./proto/model_grpc_pb');
+import { credentials } from '@grpc/grpc-js';
+import { CLIENT_HOST_TG_BOT } from '../config/envs';
+import { ChatClient } from './proto/model_grpc_pb';
 
-const client = new services.BotChatClient(
-    '127.0.0.1:8082',
-    grpc.credentials.createInsecure(),
+const client = new ChatClient(
+    CLIENT_HOST_TG_BOT,
+    credentials.createInsecure(),
 );
 
 export default client;

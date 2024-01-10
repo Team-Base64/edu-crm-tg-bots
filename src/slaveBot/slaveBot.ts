@@ -1,167 +1,543 @@
+import mime from 'mime';
+import { Context, Scenes, Telegraf, session } from 'telegraf';
+import { message } from 'telegraf/filters';
 import {
-    ProtoAttachMessage,
-    ProtoMessage,
-    updateContext,
+    CustomContext,
+    Event,
+    Homework,
+    ProtoAttach,
+    ProtoMessageBase,
+    ProtoMessageSend,
+    ProtoSolution,
+    RawFile,
+    SendMessageTo
 } from '../../types/interfaces';
-import { Context } from 'telegraf';
+import { dbInstance } from '../index';
+import {
+    HomeworkSceneBuilder,
+    IHomeworkSceneController,
+    solutionPayloadType,
+} from '../scenes/homeworkScene';
+import { MEDIA_GROUP_WAIT } from '../utils/configs';
+import { dateToString } from '../utils/date';
+import { RuntimeError, logger } from '../utils/logger';
+import { changeHttpsToHttp } from '../utils/url';
 
-import { logger } from '../utils/logger';
-import { changeHttpsToHttps } from '../utils/url';
+export interface ISlaveBotController {
+    sendMessageToClient: (message: ProtoMessageBase) => void;
+    sendMessageWithAttachToClient: (message: ProtoMessageSend) => Promise<void>;
+    getHomeworksInClass: (classID: number) => Promise<Homework[]>;
+    sendSolutionToClient: (message: ProtoSolution) => Promise<void>;
+    createChat: (studentid: number, classid: number) => Promise<number>;
+    getEvents: (classID: number) => Promise<Event[]>;
+}
 
-const { Telegraf } = require('telegraf');
-const mime = require('mime');
+export type SendMessageData = {
+    text?: string;
+    atachList: string[];
+};
 
-type SendMessageTo = { botToken: string; telegramChatID: number };
+export default class SlaveBots implements IHomeworkSceneController {
+    bots = new Map<string, Telegraf<CustomContext>>();
+    controller: ISlaveBotController;
+    scenesStage: Scenes.Stage<CustomContext>;
+    commands: { command: string, description: string; }[] = [
+        {
+            command: 'help',
+            description: 'Решения возможных проблем'
+        },
+        {
+            command: HomeworkSceneBuilder.sceneName,
+            description: HomeworkSceneBuilder.sceneDescription,
+        },
+        {
+            command: 'events',
+            description: 'Показать ближайшие занятия'
+        }
+    ];
+    // photoGroupCache = new Map<string, string[]>();
+    // docGroupCache = new Map<string, { fileID: string, fileName?: string, mimeType?: string; }[]>();
+    attachGroupCache = new Map<string, RawFile[]>();
 
-export default class SlaveBots {
-    bots;
-    context;
-    sendMessageToClient;
-    sendMessageWithAttachToClient;
-    senderChat;
+    constructor(controller: ISlaveBotController) {
+        this.controller = controller;
+        this.scenesStage = new Scenes.Stage<CustomContext>([
+            new HomeworkSceneBuilder(this).build()
+        ]);
 
-    constructor(
-        tokens: Array<string>,
-        chatIDs: Array<number>,
-        sendMessageToClient: (message: ProtoMessage) => void,
-        sendMessageWithAttachToClient: (message: ProtoAttachMessage) => void,
-    ) {
-        this.bots = new Map<string, typeof Telegraf>();
-        this.context = new Map<number, SendMessageTo>();
-        this.senderChat = new Map<number, number>();
-        this.sendMessageToClient = sendMessageToClient;
-        this.sendMessageWithAttachToClient = sendMessageWithAttachToClient;
+        this.createBots()
+            .then(() => {
+                this.initBots();
+                this.launchBots();
 
-        this.createBots(tokens);
-        this.initBots(chatIDs);
-
-        logger.info(`starting slave bots with ${logger.level} level`);
+                logger.info(`starting slave bots with ${logger.level} level.
+                                Bots count: ${this.bots.size}`);
+            })
+            .catch((error) => {
+                logger.fatal('createBots: ' + error);
+            });
     }
 
-    createBots(tokens: Array<string>) {
-        tokens.forEach((token) => {
-            this.bots.set(token, new Telegraf(token));
+    async createBots() {
+        ((await dbInstance.getSlaveBots()) ?? []).forEach(({ token }) => {
+            this.bots.set(token, new Telegraf<CustomContext>(token));
         });
+        if (!this.bots.size) {
+            throw Error('no bots in db');
+        }
     }
 
-    initBots(chatIDs: Array<number>) {
-        Array.from(this.bots.values()).forEach((bot, index) => {
-            bot.start(this.#onStartCommand.bind(this, chatIDs[index]));
-
-            bot.help(this.#onHelpCommand);
-
-            bot.on(['text'], this.#onTextMessage.bind(this));
-            bot.on(['photo'], this.#onPhotoAttachmentSend.bind(this));
-            bot.on(['document'], this.#onFileAttachmentSend.bind(this));
-        });
-    }
-
-    launchBots() {
+    private initBots() {
         Array.from(this.bots.values()).forEach((bot) => {
-            bot.launch().catch((reason: string) =>
-                logger.error('bot.launch() error: ' + reason),
-            );
+            this.addAuthMiddleware(bot);
+
+            bot.use(session());
+            bot.use(this.scenesStage.middleware());
+
+            bot.start(this.onStartCommand);
+            bot.help(this.onHelpCommand);
+
+            bot.telegram.setMyCommands(this.commands);
+            this.addHomeworkCommandHandler(bot);
+            this.addEventCommandHandler(bot);
+
+            this.addTextMessageHandler(bot);
+            this.addPhotoMessageHandler(bot);
+            this.addDocumentMessageHandler(bot);
+
+            bot.action(/.+/, (ctx) => {
+                return ctx.answerCbQuery('Оу, не сейчас!');
+            });
+        });
+    }
+
+    private getBot(token: string) {
+        const bot = this.bots.get(token);
+        if (bot === undefined) {
+            RuntimeError(`Not found bot with token: ${token}`);
+        } else {
+            return bot;
+        }
+    }
+
+    private launchBots() {
+        Array.from(this.bots.values()).forEach((bot) => {
+            bot.launch().catch((error: string) => {
+                logger.error('launchBots: ' + error);
+                this.launchBots();
+            });
+
             process.once('SIGINT', () => bot.stop('SIGINT'));
             process.once('SIGTERM', () => bot.stop('SIGTERM'));
         });
     }
 
     sendMessage({ botToken, telegramChatID }: SendMessageTo, text: string) {
-        this.bots.get(botToken).telegram.sendMessage(telegramChatID, text);
+        this.getBot(botToken).telegram.sendMessage(telegramChatID, text);
+        logger.debug('sendMessage: ' + text);
     }
 
-    sendDocument({ botToken, telegramChatID }: SendMessageTo, text: string) {
-        this.bots.get(botToken).telegram.sendDocument(telegramChatID, text);
-    }
-
-    sendPhoto({ botToken, telegramChatID }: SendMessageTo, text: string) {
-        this.bots.get(botToken).telegram.sendDocument(telegramChatID, text);
-    }
-
-    #getBot({ telegram }: updateContext) {
-        return this.bots.get(telegram.token);
-    }
-
-    #onStartCommand(chatID: number, ctx: Context) {
-        ctx.reply('Run /addClass command').catch((reason: string) =>
-            logger.error('bot.start() error: ' + reason),
+    sendAttaches(
+        { botToken, telegramChatID }: SendMessageTo,
+        data: SendMessageData,
+    ) {
+        logger.debug(
+            `sendMedia: text - ${data.text}, attaches - ${data.atachList.length}`,
         );
-
-        if (ctx.message && ctx.message.from.id) {
-            this.context.set(chatID, {
-                botToken: ctx.telegram.token,
-                telegramChatID: ctx.message.from.id,
+        this.getBot(botToken)
+            .telegram.sendMediaGroup(
+                telegramChatID,
+                data.atachList.map((attach, idx) => {
+                    return {
+                        media: attach,
+                        type: 'document',
+                        caption:
+                            idx === data.atachList.length - 1
+                                ? data.text
+                                : undefined,
+                    };
+                }),
+            )
+            .catch((error: string) => {
+                logger.error('sendMedia: ' + error);
+                this.getBot(botToken).telegram.sendMessage(
+                    telegramChatID,
+                    'Ошибка при отправке сообщения',
+                );
             });
+    }
 
-            this.senderChat.set(ctx.message.chat.id, chatID);
-        } else {
-            logger.error(
-                'bot.start: ',
-                'no ctx.message && ctx.message.from.id',
-            );
-            ctx.reply('error occurred. Try later.').catch((reason: string) =>
-                logger.error('bot.start() error: ' + reason),
-            );
+    async getHomeworks(ctx: CustomContext): Promise<Homework[]> {
+        if (ctx.message === undefined) {
+            logger.error('getHomeworksInClass: нет message');
+            await this.replyErrorMsg(ctx);
+            return [];
         }
+
+        const classid = await dbInstance.getSlaveBotClassIdByChatId(
+            ctx.educrm.chatID,
+        );
+        if (typeof classid !== 'number') {
+            logger.error('addHomeworkCommandHandler: classid - ' + classid);
+            await this.replyErrorMsg(ctx);
+            return [];
+        }
+        return await this.controller
+            .getHomeworksInClass(classid)
+            .catch((error) => {
+                logger.error('addHomeworkCommandHandler: ' + error);
+                return [];
+            });
     }
 
-    #onHelpCommand(ctx: updateContext) {
-        ctx.reply(
-            'Run /addClass command to send me a token from your teacher!',
-        ).catch((reason: string) => logger.error('bot.help error: ' + reason));
-    }
-
-    #onTextMessage(ctx: updateContext) {
-        if (ctx.message) {
-            if (this.senderChat.has(ctx.message.chat.id)) {
-                this.sendMessageToClient({
-                    chatid: this.senderChat.get(ctx.message.chat.id) ?? 1,
-                    text: ctx.message.text,
-                });
+    async sendSolution(solution: solutionPayloadType) {
+        const attachList: ProtoAttach[] = [];
+        for (const rawFile of solution.files) {
+            const file = await this.prepareFileUpload(solution.token, rawFile);
+            if (file === undefined) {
+                logger.error('addDocumentMessageHandler: file === undefined');
+                continue;
             }
-        } else {
-            logger.warn("bot.on(['text']: no message");
+            file.fileLink = changeHttpsToHttp(file.fileLink);
+            attachList.push(file);
         }
+        if (attachList.length !== solution.files.length) {
+            return false;
+        }
+
+        return await this.controller
+            .sendSolutionToClient({
+                homeworkID: solution.homeworkID,
+                data: {
+                    text: solution.text,
+                    attachList,
+                },
+                studentID: solution.studentID,
+            })
+            .then(() => true)
+            .catch(() => false);
     }
 
-    async #onPhotoAttachmentSend(ctx: updateContext) {
-        if (ctx.message && ctx.message.photo) {
-            const fileLink = await this.#getBot(ctx)
-                .telegram.getFileLink(ctx.message.photo.at(-1)?.file_id)
-                .catch((err: unknown) => logger.error(err));
-
-            this.sendMessageWithAttachToClient({
-                chatid: this.senderChat.get(ctx.message.chat.id) ?? 1,
-                text: ctx.message.text ?? '',
-                mimetype: mime.getType(fileLink),
-                fileLink: changeHttpsToHttps(fileLink),
-            });
-        } else {
-            logger.warn("bot.on(['text']: no message");
-        }
+    private async onStartCommand(ctx: CustomContext) {
+        await ctx
+            .reply('Все готово! Можете начинать общаться с преподавателем.')
+            .catch((error) => logger.error('onStartCommand: ' + error));
     }
 
-    async #onFileAttachmentSend(ctx: updateContext) {
-        if (ctx.message && ctx.message.document) {
-            logger.trace(
-                this.#getBot(ctx).telegram.getFile(
-                    ctx.message.document.file_id,
-                ),
-            );
-            const fileLink = await this.#getBot(ctx)
-                .telegram.getFileLink(ctx.message.document.file_id)
-                .catch((err: unknown) => logger.error(err));
+    private async onHelpCommand(ctx: CustomContext) {
+        await ctx.replyWithMarkdownV2(
+            'Добро пожаловать в TG бота сервиса EDUCRM\\!\n' +
+            'Важные замечания:\n' +
+            '\\- В нашем сервисе можно пожаловать только *картинки* и *pdf*',
+        );
+    }
 
-            this.sendMessageWithAttachToClient({
-                chatid: this.senderChat.get(ctx.message.chat.id) ?? 1,
-                text: ctx.message.text ?? '',
-                mimetype:
-                    ctx.message.document.mime_type ??
-                    mime.getType(ctx.message.document.file_name ?? fileLink),
-                fileLink: changeHttpsToHttps(fileLink),
+    private addAuthMiddleware(bot: Telegraf<CustomContext>) {
+        bot.use(async (ctx, next) => {
+            ctx.educrm ??= {
+                chatID: -1,
+                studentID: -1,
+                classID: -1,
+            };
+            if (ctx.chat) {
+                const info =
+                    await dbInstance.getSlaveBotInfoByUserIdAndToken(
+                        ctx.chat.id,
+                        ctx.telegram.token,
+                    );
+                if (typeof info === 'undefined') {
+                    return ctx.reply(
+                        'Этот бот не зарегистрирован для Вас. Продолжите работу в мастер боте - https://t.me/educrmmaster2bot',
+                    );
+                }
+
+                switch (typeof info.chatID) {
+                    case 'object': {
+                        const newChatID = await this.controller.createChat(
+                            info.studentID,
+                            info.classID,
+                        );
+                        if (newChatID === -1) {
+                            logger.error(
+                                'AuthMiddleware, createChat: chatID === -1',
+                            );
+                            return this.replyErrorMsg(ctx);
+                        }
+                        if (
+                            !(await dbInstance.updateChatIdInByStudentAndClassId(
+                                newChatID,
+                                info.studentID,
+                                info.classID,
+                            ))
+                        ) {
+                            logger.error(
+                                'AuthMiddleware, updateChatIdInByStudentAndClassId: false',
+                            );
+                            return this.replyErrorMsg(ctx);
+                        }
+                        this.controller.sendMessageToClient({
+                            chatid: newChatID,
+                            text: 'Ученик присоединился к классу!'
+                        });
+                        ctx.educrm.chatID = newChatID;
+                        break;
+                    }
+                    case 'number': {
+                        ctx.educrm.chatID = info.chatID;
+                        break;
+                    }
+                }
+                ctx.educrm.studentID = info.studentID;
+                ctx.educrm.classID = info.classID;
+            }
+            return next();
+        });
+    }
+
+    private addTextMessageHandler(bot: Telegraf<CustomContext>) {
+        bot.on(message('text'), async (ctx) => {
+            this.controller.sendMessageToClient({
+                chatid: ctx.educrm.chatID,
+                text: ctx.message.text,
             });
-        } else {
-            logger.warn("bot.on(['text']: no message");
+        });
+    }
+
+    private addPhotoMessageHandler(bot: Telegraf<CustomContext>) {
+        bot.on(message('photo', 'media_group_id'), (ctx) => {
+            const groupID = ctx.chat.id + '-' + ctx.message.media_group_id;
+            let attachList = this.attachGroupCache.get(groupID);
+            if (attachList === undefined) {
+                this.attachGroupCache.set(groupID, []);
+                setTimeout(
+                    async () => {
+                        const attachList: ProtoAttach[] = [];
+                        const files = this.attachGroupCache.get(groupID)!;
+                        for (const rawFile of files) {
+                            const file = await this.prepareFileUpload(ctx.telegram.token, rawFile);
+                            if (file === undefined) {
+                                logger.error('addPhotoMessageHandler: file === undefined');
+                                continue;
+                            }
+                            file.fileLink = changeHttpsToHttp(file.fileLink);
+                            attachList.push(file);
+                        }
+                        this.controller
+                            .sendMessageWithAttachToClient({
+                                chatid: ctx.educrm.chatID,
+                                text: ctx.message.caption ?? '',
+                                attachList,
+                            })
+                            .catch(() => {
+                                logger.error(
+                                    'addPhotoMessageHandler: sendMessageWithAttachToClient error',
+                                );
+                            });
+                        this.attachGroupCache.delete(groupID);
+                    },
+                    MEDIA_GROUP_WAIT
+                );
+                attachList = [];
+            }
+
+            const fileID = ctx.message.photo.pop()?.file_id;
+            if (fileID === undefined) {
+                logger.error(
+                    'addPhotoMessageHandler: fileID === undefined',
+                );
+                return;
+            }
+            attachList.push({ fileID });
+
+            this.attachGroupCache.set(groupID, attachList);
+        });
+
+        bot.on(message('photo'), async (ctx) => {
+            const fileID = ctx.message.photo.pop()?.file_id;
+            if (fileID === undefined) {
+                logger.error(
+                    'addPhotoMessageHandler: fileID === undefined',
+                );
+                return this.replyErrorMsg(ctx);
+            }
+            const file = await this.prepareFileUpload(ctx.telegram.token, {
+                fileID,
+            });
+            if (file === undefined) {
+                logger.error('addPhotoMessageHandler: file === undefined');
+                return this.replyErrorMsg(ctx);
+            }
+
+            await this.controller
+                .sendMessageWithAttachToClient({
+                    chatid: ctx.educrm.chatID,
+                    text: ctx.message.caption ?? '',
+                    attachList: [{
+                        mimeType: file.mimeType,
+                        fileLink: changeHttpsToHttp(file.fileLink),
+                    }],
+                })
+                .catch(() => {
+                    logger.error(
+                        'addPhotoMessageHandler: sendMessageWithAttachToClient error',
+                    );
+                    return this.replyErrorMsg(ctx);
+                });
+        });
+
+    }
+
+    private addDocumentMessageHandler(bot: Telegraf<CustomContext>) {
+        bot.on(message('document', 'media_group_id'), async (ctx) => {
+            const groupID = ctx.chat.id + '-' + ctx.message.media_group_id;
+            let attachList = this.attachGroupCache.get(groupID);
+            if (attachList === undefined) {
+                this.attachGroupCache.set(groupID, []);
+                setTimeout(
+                    async () => {
+                        const attachList: ProtoAttach[] = [];
+                        const files = this.attachGroupCache.get(groupID)!;
+                        for (const rawFile of files) {
+                            const file = await this.prepareFileUpload(ctx.telegram.token, rawFile);
+                            if (file === undefined) {
+                                logger.error('addDocumentMessageHandler: file === undefined');
+                                continue;
+                            }
+                            file.fileLink = changeHttpsToHttp(file.fileLink);
+                            attachList.push(file);
+                        }
+                        this.controller
+                            .sendMessageWithAttachToClient({
+                                chatid: ctx.educrm.chatID,
+                                text: ctx.message.caption ?? '',
+                                attachList,
+                            })
+                            .catch(() => {
+                                logger.error(
+                                    'addDocumentMessageHandler: sendMessageWithAttachToClient error',
+                                );
+                            });
+                        this.attachGroupCache.delete(groupID);
+                    },
+                    MEDIA_GROUP_WAIT
+                );
+                attachList = [];
+            }
+            attachList.push({
+                fileID: ctx.message.document.file_id,
+                fileName: ctx.message.document.file_name,
+                mimeType: ctx.message.document.mime_type,
+            });
+
+            this.attachGroupCache.set(groupID, attachList);
+        });
+
+        bot.on(message('document'), async (ctx) => {
+            const file = await this.prepareFileUpload(ctx.telegram.token, {
+                fileID: ctx.message.document.file_id,
+                fileName: ctx.message.document.file_name,
+                mimeType: ctx.message.document.mime_type,
+            });
+            if (file === undefined) {
+                logger.error(
+                    'addDocumentMessageHandler: file === undefined',
+                );
+                return this.replyErrorMsg(ctx);
+            }
+
+            await this.controller
+                .sendMessageWithAttachToClient({
+                    chatid: ctx.educrm.chatID,
+                    text: ctx.message.caption ?? '',
+                    attachList: [{
+                        mimeType: file.mimeType,
+                        fileLink: changeHttpsToHttp(file.fileLink),
+                    }],
+                })
+                .catch(() => {
+                    logger.error(
+                        'addDocumentMessageHandler: sendMessageWithAttachToClient error',
+                    );
+                    return this.replyErrorMsg(ctx);
+                });
+        });
+    }
+
+    private addHomeworkCommandHandler(bot: Telegraf<CustomContext>) {
+        bot.command(this.commands[1].command, async (ctx) => {
+            ctx.scene.enter(HomeworkSceneBuilder.sceneName);
+        });
+    }
+
+    private addEventCommandHandler(bot: Telegraf<CustomContext>) {
+        bot.command(this.commands[2].command, async (ctx) => {
+            const events = await this.controller.getEvents(ctx.educrm.classID)
+                .catch(err => {
+                    logger.error(
+                        'addEventCommandHandler, getEvents: ', err
+                    );
+                    return [];
+                });
+            if (events.length === 0) {
+                return await ctx.replyWithMarkdownV2('В этом классе занятия пока не запланированы');
+            }
+            let msg = 'Ближайшие занятия:\n';
+            events.forEach((event, idx) => {
+                msg += `${idx + 1}\\. ${this.escapeForMDV2(event.title)}\n`;
+                msg += `Описание: ${this.escapeForMDV2(event.description)}\n`;
+                const startDate = new Date(event.startDate);
+                const durationDate = new Date(Math.abs(Date.parse(event.endDate) - Date.parse(event.startDate)));
+                const duration =
+                    (durationDate.getHours() < 10 ? '0' : '')
+                    +
+                    durationDate.getHours()
+                    +
+                    ':'
+                    +
+                    (durationDate.getMinutes() < 10 ? '0' : '')
+                    +
+                    durationDate.getMinutes()
+                    ;
+
+                msg += `Дата занятия: ${this.escapeForMDV2(dateToString(startDate))}\n`;
+                msg += `Продолжительность: ${duration}\n`;
+                msg += '\n';
+            });
+            return await ctx.replyWithMarkdownV2(msg.slice(0, -2));
+        });
+    }
+
+    private escapeForMDV2(input: string): string {
+        return input.replace(/([_*\[\]()~`>#+=|{}.!-])/g, '\\$1');
+    }
+
+    private async prepareFileUpload(
+        token: string,
+        file: RawFile,
+    ): Promise<ProtoAttach | undefined> {
+        const fileLink = await this.getBot(token)
+            .telegram.getFileLink(file.fileID)
+            .then((url) => url.toString())
+            .catch((err: unknown) => {
+                logger.error('prepareFileUpload, getFileLink: ' + err);
+                return undefined;
+            });
+        if (fileLink === undefined) {
+            return undefined;
         }
+
+        const mimeType =
+            file.mimeType ?? mime.getType(file.fileName ?? fileLink);
+        if (mimeType === null) {
+            logger.error('prepareFileUpload: mimetype === null');
+            return undefined;
+        }
+        return { fileLink, mimeType };
+    }
+
+    private async replyErrorMsg(ctx: Context) {
+        await ctx.reply(
+            'Что-то пошло не так. Попробуйте через некоторое время. /help для справки',
+        );
     }
 }

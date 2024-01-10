@@ -1,36 +1,55 @@
-import { Context } from 'telegraf';
-import { logger } from '../utils/logger';
-import { updateContext } from '../../types/interfaces';
 import { dbInstance, masterBotTokenLength } from '../index';
+import { logger } from '../utils/logger';
 import SlaveBotBalancer from './slaveBotBalancer';
 
-const { Telegraf } = require('telegraf');
+import { Context, Telegraf } from 'telegraf';
+import { message } from 'telegraf/filters';
 
-type isValidFunType = (token: string) => {
+export type isValidFunReturnType = Awaited<ReturnType<isValidFunType>>;
+export type createWebChatFunReturnType = Awaited<
+    ReturnType<createWebChatFunType>
+>;
+export type registerWebReturnType = Awaited<ReturnType<registerWeb>>;
+
+type isValidFunType = (token: string) => Promise<{
     isvalid: boolean;
     classid: number;
-};
-type createWebChatFunType = (studentid: number, classid: number) => number;
-type registerWeb = (name: string, avatar: string) => number;
+}>;
+type createWebChatFunType = (
+    studentid: number,
+    classid: number,
+) => Promise<{ chatid: number }>;
+type registerWeb = (
+    name: string,
+    classid: number,
+    avatar: string,
+) => Promise<{ studentid: number }>;
+type uploadAvatar = (
+    rawLink: string,
+) => Promise<{ internalURL: string; mimetype: string } | undefined>;
 
 export default class MasterBot {
     bot;
     slaveBots;
     verifyTokenWeb: isValidFunType;
-    createChatWeb: createWebChatFunType;
+    // createChatWeb: createWebChatFunType;
     registerWeb: registerWeb;
     slaveBotBalancer: SlaveBotBalancer;
+    uploadAvatar: uploadAvatar;
 
     constructor(
         token: string,
         verifyTokenWeb: isValidFunType,
-        createChatWeb: createWebChatFunType,
+        // createChatWeb: createWebChatFunType,
         registerWeb: registerWeb,
+        uploadAvatar: uploadAvatar,
     ) {
         this.verifyTokenWeb = verifyTokenWeb;
-        this.createChatWeb = createChatWeb;
+        // this.createChatWeb = createChatWeb;
         this.registerWeb = registerWeb;
 
+        this.uploadAvatar = uploadAvatar;
+          
         this.slaveBotBalancer = new SlaveBotBalancer();
 
         this.bot = new Telegraf(token);
@@ -45,17 +64,19 @@ export default class MasterBot {
     initBots() {
         this.bot.start(this.#onStartCommand.bind(this));
 
-        this.bot.help(this.#onHelpCommand);
+        // this.bot.help(this.#onDeleteBot.bind(this));
 
-        this.bot.on('message', this.#onTextMessage.bind(this));
+        // this.bot.command('/deleteBot', this.#onDeleteBot.bind(this));
+        // this.bot.hears('/deleteBot', this.#onDeleteBot.bind(this));
+
+        this.addTextMessageHandler(this.bot);
     }
 
     launchBot() {
-        this.bot
-            .launch()
-            .catch((reason: string) =>
-                logger.fatal('master bot.launch() error: ' + reason),
-            );
+        this.bot.launch().catch((reason: string) => {
+            logger.fatal('master bot.launch() error: ' + reason);
+            this.launchBot();
+        });
         process.once('SIGINT', () => this.bot.stop('SIGINT'));
         process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
     }
@@ -66,96 +87,161 @@ export default class MasterBot {
         );
     }
 
-    #onHelpCommand(ctx: updateContext) {
-        ctx.reply(
-            'Отправьте сообщение с вашим кодом, ' +
-                'чтобы получить бота для общения с преподавателем',
-        ).catch((reason: string) => logger.fatal('bot.help error: ' + reason));
-    }
+    // #onHelpCommand(ctx: updateContext) {
+    //     ctx.replyWithMarkdownV2(
+    //         'Отправьте сообщение с вашим кодом, ' +
+    //             'чтобы получить бота для общения с преподавателем',
+    //     ).catch((reason: string) => logger.fatal('bot.help error: ' + reason));
+    // }
 
-    async #onTextMessage(ctx: updateContext) {
-        if (ctx.message && ctx.message.text.length === masterBotTokenLength) {
-            const { isvalid, classid } = this.verifyTokenWeb(ctx.message.text);
-            if (isvalid) {
-                let { userExists, chatid, studentid } =
-                    (await dbInstance.checkIfUserExists(
-                        ctx.message.from.id,
-                        classid,
-                    )) ?? { userExists: false };
+    private async addTextMessageHandler(bot: Telegraf) {
+        bot.on(message('text'), async (ctx) => {
+            if (
+                ctx.message &&
+                ctx.message.text.length === masterBotTokenLength
+            ) {
+                const { isvalid, classid } = await this.verifyTokenWeb(
+                    ctx.message.text,
+                ).catch((error) => {
+                    logger.error('verifyTokenWeb err: ' + error);
+                    return error;
+                });
+                logger.info(
+                    '#onTextMessage, verifyTokenWeb, res: ' +
+                        JSON.stringify({ isvalid, classid }),
+                );
+                if (isvalid) {
+                    const { userExists, chatid } =
+                        (await dbInstance.checkIfUserExists(
+                            ctx.message.from.id,
+                            classid,
+                        )) ?? { userExists: false };
 
-                logger.debug('#onTextMessage, userExists: ' + userExists);
+                    logger.debug('#onTextMessage, userExists: ' + userExists);
+                    let avatarInternalURL = '';
 
-                let slaveBotLink = '';
-                if (!userExists) {
-                    studentid = this.registerWeb(
-                        (ctx.message.from.last_name ??
-                            ctx.message.from.username) +
-                            (ctx.message.from.last_name ?? ''),
-                        '',
-                    );
+                    try {
+                        const profilePhotos =
+                            await bot.telegram.getUserProfilePhotos(
+                                ctx.message.from.id,
+                                0,
+                                1,
+                            );
+                        const latestPhoto = profilePhotos.photos.at(0)?.pop();
 
-                    chatid = this.createChatWeb(studentid, classid);
+                        if (latestPhoto) {
+                            const extURL = await bot.telegram.getFileLink(
+                                latestPhoto.file_id,
+                            );
+                            const resp = await this.uploadAvatar(
+                                extURL.toString(),
+                            );
+                            if (resp) {
+                                avatarInternalURL = resp.internalURL;
+                            }
+                        }
+                        logger.debug('Avatar: ' + avatarInternalURL);
+                    } catch (e) {
+                        logger.error(e, 'Avatar err ');
+                    }
+                    let slaveBotLink = '';
+                    if (!userExists) {
+                        const registerWebResponse = await this.registerWeb(
+                            (ctx.message.from.first_name ??
+                                ctx.message.from.username) +
+                                ' ' +
+                                (ctx.message.from.last_name ?? ''),
+                            classid,
+                            avatarInternalURL,
+                        ).catch((error) => {
+                            logger.error('registerWeb, result: ' + error);
+                            return error;
+                        });
 
-                    slaveBotLink = await this.#getNewSlaveBot(
-                        chatid,
-                        ctx.message.from.id,
-                        studentid,
-                        classid,
-                    ).catch((error) => {
-                        logger.warn(error.message);
-                        ctx.reply(
-                            'К сожалению Вам сейчас недоступно создание бота. ' +
-                                'Отвяжите активный бот и попробуйте снова',
+                        const studentid = registerWebResponse?.studentid;
+
+                        if (studentid != -1) {
+                            // const createChatWebResponse = await this.createChatWeb(
+                            //     studentid,
+                            //     classid,
+                            // ).catch((error) => {
+                            //     logger.error('createChatWeb, result: ' + error);
+                            //     return error;
+                            // });
+
+                            // chatid = createChatWebResponse?.chatid;
+
+                            slaveBotLink = await this.#getNewSlaveBot(
+                                ctx.message.from.id,
+                                studentid,
+                                classid,
+                            ).catch((error) => {
+                                logger.warn(error.message);
+                                ctx.reply(
+                                    'К сожалению Вам сейчас недоступно создание бота. ' +
+                                        'Отвяжите активный бот c помощью */help* и попробуйте снова',
+                                    { parse_mode: 'Markdown' },
+                                );
+                                return '';
+                            });
+                            logger.trace('new, slaveBotLink: ' + slaveBotLink);
+                        } else {
+                            logger.info(
+                                "bot.on(['text']: error create student",
+                            );
+                            ctx.reply(
+                                'Ошибка сервера. ' + 'Попробуйте еще раз',
+                                {
+                                    parse_mode: 'Markdown',
+                                },
+                            ).catch((reason: string) =>
+                                logger.fatal(
+                                    "bot.on(['text'] error: " + reason,
+                                ),
+                            );
+                        }
+                    } else {
+                        slaveBotLink = await dbInstance.getExistingSlaveBot(
+                            chatid,
+                            ctx.message.from.id,
                         );
-                        return '';
-                    });
-                    logger.trace('new, slaveBotLink: ' + slaveBotLink);
-                } else {
-                    slaveBotLink = await dbInstance.getExistingSlaveBot(
-                        chatid,
-                        ctx.message.from.id,
-                    );
-                    logger.trace('exist, slaveBotLink: ' + slaveBotLink);
-                }
+                        logger.trace('exist, slaveBotLink: ' + slaveBotLink);
+                    }
 
-                if (slaveBotLink) {
+                    if (slaveBotLink) {
+                        ctx.reply(
+                            'Ваш бот для общения с преподавателем: ' +
+                                `*${slaveBotLink}*. ` +
+                                'Нажмите */start*, когда перейдете в этот бот',
+                            { parse_mode: 'Markdown' },
+                        ).catch((reason: string) =>
+                            logger.fatal("bot.on(['text'] error: " + reason),
+                        );
+                    }
+                } else {
+                    logger.info("bot.on(['text']: invalid token");
                     ctx.reply(
-                        'Ваш бот для общения с преподавателем: ' +
-                            `*${slaveBotLink}*. ` +
-                            'Нажмите */start*, когда перейдете в этот бот',
+                        'Неверный токен. ' +
+                            'Для отображения помощи используйте */help*',
                         { parse_mode: 'Markdown' },
                     ).catch((reason: string) =>
                         logger.fatal("bot.on(['text'] error: " + reason),
                     );
                 }
             } else {
-                logger.info("bot.on(['text']: invalid token");
+                logger.info("bot.on(['text']: wrong symbols count");
                 ctx.reply(
-                    'Неверный токен. ' +
+                    `Токен может содержать только ${masterBotTokenLength} символов. ` +
                         'Для отображения помощи используйте */help*',
                     { parse_mode: 'Markdown' },
                 ).catch((reason: string) =>
                     logger.fatal("bot.on(['text'] error: " + reason),
                 );
             }
-        } else {
-            logger.info("bot.on(['text']: wrong symbols count");
-            ctx.reply(
-                `Токен может содержать только ${masterBotTokenLength} символов. ` +
-                    'Для отображения помощи используйте */help*',
-                { parse_mode: 'Markdown' },
-            ).catch((reason: string) =>
-                logger.fatal("bot.on(['text'] error: " + reason),
-            );
-        }
+        });
     }
 
-    async #getNewSlaveBot(
-        chatid: number,
-        userid: number,
-        studentid: number,
-        classid: number,
-    ) {
+    async #getNewSlaveBot(userid: number, studentid: number, classid: number) {
         const currentSlaveBots =
             await dbInstance.getCurrentSlaveBotsForUser(userid);
 
@@ -178,8 +264,33 @@ export default class MasterBot {
             botid = botData.botid;
             link = botData.link;
         }
-        await dbInstance.addUser(chatid, userid, studentid, classid, botid);
+        await dbInstance.addUser(userid, studentid, classid, botid);
 
         return link;
     }
+
+    //     async #onDeleteBot(ctx: CustomContext) {
+    //         logger.debug('#onDeleteBot, text: ' + ctx.message?.text);
+    //         if (ctx.message && ctx.message.text) {
+    //             await dbInstance
+    //                 .unlinkBot(ctx.message?.text.replace('/help ', ''))
+    //                 .then((response) => {
+    //                     ctx.reply(
+    //                         response
+    //                             ? 'Бот успешно отвязан'
+    //                             : 'Бот с такой ссылкой не найден. ' +
+    //                             `Если вы хотите отвязать бот, Вы должны ввести команду
+    // */help <ссылка на бот для удаления>*`,
+    //                         { parse_mode: 'Markdown' },
+    //                     );
+    //                 })
+    //                 .catch((error) =>
+    //                     logger.error('#onDeleteBot, error: ' + error),
+    //                 );
+    //         } else {
+    //             ctx.reply('Возникало ошибка. Попробуйте позже').catch((error) =>
+    //                 logger.error('#onDeleteBot, no message: ' + error),
+    //             );
+    //         }
+    //     }
 }

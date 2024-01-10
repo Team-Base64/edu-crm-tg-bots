@@ -1,81 +1,219 @@
-const messages = require('../grpc/proto/model_pb');
-require('dotenv').config();
-
-import { ProtoAttachMessage, ProtoMessage } from '../../types/interfaces';
-import SlaveBots from './slaveBot';
-import { logger } from '../utils/logger';
+import {
+    Event,
+    Homework,
+    ProtoAttach,
+    ProtoMessageBase,
+    ProtoMessageRecieve,
+    ProtoMessageSend,
+    ProtoSolution,
+    SendMessageTo,
+    Task
+} from '../../types/interfaces';
 import client from '../grpc/client';
+import { logger } from '../utils/logger';
 
-// import { streamInstance } from '../index';
+import {
+    CreateChatRequest,
+    FileUploadRequest,
+    GetEventsRequest,
+    GetHomeworksRequest,
+    Message,
+    SendSolutionRequest,
+    SolutionData,
+} from '../grpc/proto/model_pb';
+import { streamInstance } from '../index';
+import SlaveBots, { ISlaveBotController } from './slaveBot';
 
-export default class NetSlaveBot {
+export default class NetSlaveBot implements ISlaveBotController {
     bots;
 
-    constructor(tokens: Array<string>, chatIDs: Array<number>) {
-        this.bots = new SlaveBots(
-            tokens,
-            chatIDs,
-            this.sendMessageToClient,
-            this.sendMessageWithAttachToClient,
+    constructor() {
+        this.bots = new SlaveBots(this);
+    }
+
+    sendMessageFromClient(
+        message: ProtoMessageRecieve,
+        sendMessageTo: SendMessageTo,
+    ) {
+        if (message.attachList.length > 0) {
+            this.bots.sendAttaches(sendMessageTo, {
+                text: message.text,
+                atachList: message.attachList,
+            });
+        } else if (message.text !== '') {
+            this.bots.sendMessage(sendMessageTo, message.text);
+        } else {
+            logger.error('sendMessageFromClient: empty message');
+        }
+    }
+
+    sendMessageToClient(message: ProtoMessageBase) {
+        logger.info(
+            `sendMessageToClient: chatID: ${message.chatid}, text = ${message.text}`,
         );
-        this.bots.launchBots();
+        const request = new Message();
+        request.setText(message.text);
+        request.setChatid(message.chatid);
+        streamInstance.self.write(request);
     }
 
-    sendMessageFromClient(message: ProtoAttachMessage) {
-        const sendMessageTo = this.bots.context.get(message.chatid);
-        if (sendMessageTo) {
-            if (message.text) {
-                this.bots.sendMessage(sendMessageTo, message.text);
-            }
-            if (message.fileLink) {
-                if (message.mimetype.includes('image')) {
-                    this.bots.sendPhoto(sendMessageTo, message.fileLink);
-                } else {
-                    this.bots.sendDocument(sendMessageTo, message.fileLink);
+    async getHomeworksInClass(classid: number) {
+        logger.info(`getHomeworksInClass: classid: ${classid}`);
+        const request = new GetHomeworksRequest().setClassid(classid);
+        return new Promise<Homework[]>((resolve, reject) => {
+            client.getHomeworks(request, (err, response) => {
+                if (err) {
+                    logger.error('getHomeworksInClass: ', err);
+                    return reject([]);
                 }
-            }
-        } else {
-            logger.error(
-                `sendMessageFromClient error, no such chat id = ${message.chatid}`,
-            );
-        }
+                const hws = response.getHomeworksList().map<Homework>((hw) => {
+                    const tasks = hw.getTasksList().map<Task>((task) => {
+                        return {
+                            description: task.getDescription(),
+                            attachmenturlsList: task.getAttachmenturlsList(),
+                        };
+                    });
+                    return {
+                        homeworkid: hw.getHomeworkid(),
+                        title: hw.getTitle(),
+                        description: hw.getDescription(),
+                        createDate: new Date(hw.getCreatedate()),
+                        deadlineDate: new Date(hw.getDeadlinedate()),
+                        tasks,
+                    };
+                });
+                logger.info('getHomeworksInClass hws: ' + hws.length);
+                return resolve(hws);
+            });
+        });
     }
 
-    sendMessageToClient(message: ProtoMessage) {
-        if (message.chatid !== undefined) {
-            logger.info(
-                `sendMessageToClient: chatID: ${message.chatid}, text = ${message.text}`,
-            );
-            const request = new messages.Message();
-            request.setText(message.text);
-            request.setChatid(message.chatid);
-            // streamInstance.self.write(request);
-        } else {
-            logger.error(
-                `sendMessageToClient error, no such chat id = ${message.chatid}`,
-            );
-        }
-    }
-
-    sendMessageWithAttachToClient(message: ProtoAttachMessage) {
-        if (message.chatid !== undefined) {
-            logger.info(`sendMessageToClient: chatID: ${message.chatid}, text = ${message.text},
-             mimeType: ${message.mimetype}, fileLink: ${message.fileLink}`);
-
-            const request = new messages.FileUploadRequest();
-            request.setChatid(message.chatid);
-            request.setText(message.text);
-            request.setMimetype(message.mimetype);
-            request.setFilelink(message.fileLink);
-            client.uploadAttachesTG(request, (error: string) => {
+    uploadAttach(attach: ProtoAttach) {
+        const request = new FileUploadRequest();
+        request.setMimetype(attach.mimeType);
+        request.setFileurl(attach.fileLink);
+        return new Promise<string>((resolve, reject) => {
+            client.uploadFile(request, (error, response) => {
                 if (error) {
-                    logger.error(error);
+                    logger.error(
+                        'sendSolutionToClient, uploadFile: ' + error,
+                    );
+                    reject();
+                }
+                logger.info(
+                    `response inner file url: ${response.getInternalfileurl()}`,
+                );
+                return resolve(response.getInternalfileurl());
+            });
+        });
+    }
+
+    async sendMessageWithAttachToClient(message: ProtoMessageSend) {
+        logger.info(`sendMessageWithAttachToClient: chatID: ${message.chatid}, text = ${message.text},
+             files: ${message.attachList.length}`);
+
+        const promiseAttachList = message.attachList.map((attach) => this.uploadAttach(attach));
+        const attachList = await Promise.all(promiseAttachList);
+        const request = new Message();
+        request.setText(message.text);
+        request.setChatid(message.chatid);
+        request.setAttachmenturlsList(attachList);
+        streamInstance.self.write(request);
+
+        // return new Promise<void>((resolve, reject) => {
+        //     client.uploadFile(request, (error, response) => {
+        //         if (error) {
+        //             logger.error('sendMessageWithAttachToClient: ' + error);
+        //             reject();
+        //         } else {
+        //             logger.info(
+        //                 `response inner file url: ${response.getInternalfileurl()}`,
+        //             );
+        //             const request2 = new Message();
+        //             request2.setText(message.text);
+        //             request2.setChatid(message.chatid);
+        //             // нужно ставить тип сообщения
+        //             //request2.setMessagetype('message');
+        //             request2.setAttachmenturlsList([
+        //                 response.getInternalfileurl(),
+        //             ]);
+        //             // если это домашка, поставить id домашки
+        //             // request2.setHomeworkid(-1);
+        //             streamInstance.self.write(request2);
+        //             console.log(streamInstance.self.write);
+        //             resolve();
+        //         }
+        //     });
+        // });
+    }
+
+    async sendSolutionToClient(message: ProtoSolution) {
+        logger.info(
+            `sendSolutionToClient: homeworkID = ${message.homeworkID}, studentID = ${message.studentID}`,
+        );
+
+        const promiseAttachList = message.data.attachList.map((attach) => this.uploadAttach(attach));
+
+        const attachList = await Promise.all(promiseAttachList);
+        const request_2 = new SendSolutionRequest();
+        request_2.setHomeworkid(message.homeworkID);
+        request_2.setStudentid(message.studentID);
+        const solData = new SolutionData();
+        solData.setText(message.data.text);
+        solData.setAttachmenturlsList(attachList);
+        request_2.setSolution(solData);
+        return await new Promise<void>((resolve_1, reject_1) => {
+            client.sendSolution(request_2, (error_1) => {
+                if (error_1) {
+                    logger.error(
+                        'sendSolutionToClient, sendSolution: ' + error_1);
+                    reject_1();
+                } else {
+                    resolve_1();
                 }
             });
-        } else {
-            logger.error(
-                `sendMessageWithAttachToClient error, no such chat id = ${message.chatid}`,
-            );
-        }
+        });
+    }
+
+    createChat(studentid: number, classid: number) {
+        const request = new CreateChatRequest();
+        request.setStudentid(studentid);
+        request.setClassid(classid);
+        logger.info('createChat req ' + studentid + ' ' + classid);
+        return new Promise<number>((resolve, reject) => {
+            client.createChat(request, (err, response) => {
+                if (err) {
+                    logger.error('createChat: ', err);
+                    return reject(-1);
+                }
+                logger.info('createChat resp ' + response.getInternalchatid());
+                const chatid = response.getInternalchatid();
+                return resolve(chatid);
+            });
+        });
+    }
+
+    getEvents(classID: number): Promise<Event[]> {
+        const request = new GetEventsRequest();
+        request.setClassid(classID);
+        return new Promise<Event[]>((resolve, reject) => {
+            client.getEvents(request, (err, response) => {
+                if (err) {
+                    logger.error('getEvents:  ', err);
+                    return reject(err);
+                }
+                const events = response.getEventsList().map<Event>(
+                    eventData => {
+                        return {
+                            title: eventData.getTitle(),
+                            description: eventData.getDescription(),
+                            startDate: eventData.getStartdate(),
+                            endDate: eventData.getEnddate()
+                        };
+                    }
+                );
+                return resolve(events);
+            });
+        });
     }
 }

@@ -4,8 +4,11 @@ on:
   push:
 
 env:
-  IMAGE: "ghcr.io/team-base64/edu-crm-tg-slave-bot-app"
-  CONTAINER: "tg-slave-bot"
+  IMAGE: "ghcr.io/team-base64/edu-crm-tg-bots-app"
+  CONTAINER: "tg"
+  SQL_SRC: "tg-bots-sql"
+  DATA_FILE: "*-data"
+  CONTAINER_DB: "tgdb"
 
 permissions:
   contents: read
@@ -28,3 +31,21 @@ jobs:
           context: .
           push: true
           tags: ${{ env.IMAGE }}:latest
+  deploy:
+    needs: build
+    if: contains(github.event.head_commit.message, '[DEPLOY]')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: |
+            cd ${{ secrets.TARGET_DOCKER_COMPOSE }}
+            docker compose stop
+            docker compose pull ${{ env.CONTAINER }}
+            docker compose create ${{ env.CONTAINER }}
+            docker compose start
+            docker system prune -af --volumes

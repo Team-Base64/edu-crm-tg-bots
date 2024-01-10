@@ -1,29 +1,84 @@
-import { Context } from 'telegraf';
-import { Message, Update } from '@telegraf/types';
-import NonChannel = Update.NonChannel;
-import New = Update.New;
-import TextMessage = Message.TextMessage;
-import DocumentMessage = Message.DocumentMessage;
-import PhotoMessage = Message.PhotoMessage;
+import { Update } from '@telegraf/types';
+import { Context, Scenes } from 'telegraf';
 
-export interface ProtoMessage {
+export type SendMessageTo = {
+    botToken: string;
+    telegramChatID: number;
+};
+
+export interface ProtoMessageBase {
     chatid: number;
     text: string;
-    time?: number;
 }
 
-export interface ProtoAttachMessage extends ProtoMessage {
-    mimetype: string;
+export interface ProtoMessageRecieve extends ProtoMessageBase {
+    attachList: string[];
+}
+
+export interface ProtoAttach {
+    mimeType: string;
     fileLink: string;
 }
 
-export interface updateContext extends Context {
-    message:
-        | (New &
-              NonChannel &
-              TextMessage &
-              Message &
-              DocumentMessage &
-              PhotoMessage)
-        | undefined;
+export interface ProtoMessageSend extends ProtoMessageBase {
+    attachList: ProtoAttach[];
 }
+
+export interface ProtoSolutionData {
+    text: string;
+    attachList: ProtoAttach[];
+}
+
+export interface ProtoSolution {
+    data: ProtoSolutionData;
+    homeworkID: number;
+    studentID: number;
+}
+
+export interface CustomContext extends Context<Update> {
+    scene: Scenes.SceneContextScene<CustomContext, Scenes.WizardSessionData>;
+    wizard: Scenes.WizardContextWizard<CustomContext> & {
+        state: {
+            homeworks: Homework[];
+            targetHomeworkID: number;
+            curretSolution: {
+                text: string;
+                rawAttachList: RawFile[];
+                isWaitGroup: boolean;
+            };
+        };
+    };
+    educrm: {
+        chatID: number;
+        studentID: number;
+        classID: number;
+    };
+
+}
+
+export interface Task {
+    description: string;
+    attachmenturlsList: string[];
+}
+
+export interface Homework {
+    homeworkid: number;
+    title: string;
+    description: string;
+    createDate: Date;
+    deadlineDate: Date;
+    tasks: Task[];
+}
+
+export interface RawFile {
+    fileID: string;
+    fileName?: string;
+    mimeType?: string;
+};
+
+export interface Event {
+    title: string;
+    description: string;
+    startDate: string;
+    endDate: string;
+};
