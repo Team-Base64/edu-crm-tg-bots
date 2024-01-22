@@ -1,10 +1,10 @@
 import { ClientConfig } from 'pg';
 import {
-    POSTGRES_USER,
+    POSTGRES_DB,
     POSTGRES_HOST,
     POSTGRES_PASSWORD,
     POSTGRES_PORT,
-    POSTGRES_DB,
+    POSTGRES_USER,
 } from '../config/envs';
 
 const postgresConfig: ClientConfig = {
@@ -16,4 +16,5 @@ const postgresConfig: ClientConfig = {
 };
 
 console.log('postgresConfig:', postgresConfig);
+
 export default postgresConfig;

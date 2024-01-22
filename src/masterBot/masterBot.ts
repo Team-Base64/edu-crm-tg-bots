@@ -18,15 +18,15 @@ type isValidFunType = (token: string) => Promise<{
 type createWebChatFunType = (
     studentid: number,
     classid: number,
-) => Promise<{ chatid: number }>;
+) => Promise<{ chatid: number; }>;
 type registerWeb = (
     name: string,
     classid: number,
     avatar: string,
-) => Promise<{ studentid: number }>;
+) => Promise<{ studentid: number; }>;
 type uploadAvatar = (
     rawLink: string,
-) => Promise<{ internalURL: string; mimetype: string } | undefined>;
+) => Promise<{ internalURL: string; mimetype: string; } | undefined>;
 
 export default class MasterBot {
     bot;
@@ -49,7 +49,7 @@ export default class MasterBot {
         this.registerWeb = registerWeb;
 
         this.uploadAvatar = uploadAvatar;
-          
+
         this.slaveBotBalancer = new SlaveBotBalancer();
 
         this.bot = new Telegraf(token);
@@ -108,7 +108,7 @@ export default class MasterBot {
                 });
                 logger.info(
                     '#onTextMessage, verifyTokenWeb, res: ' +
-                        JSON.stringify({ isvalid, classid }),
+                    JSON.stringify({ isvalid, classid }),
                 );
                 if (isvalid) {
                     const { userExists, chatid } =
@@ -149,8 +149,8 @@ export default class MasterBot {
                         const registerWebResponse = await this.registerWeb(
                             (ctx.message.from.first_name ??
                                 ctx.message.from.username) +
-                                ' ' +
-                                (ctx.message.from.last_name ?? ''),
+                            ' ' +
+                            (ctx.message.from.last_name ?? ''),
                             classid,
                             avatarInternalURL,
                         ).catch((error) => {
@@ -179,7 +179,7 @@ export default class MasterBot {
                                 logger.warn(error.message);
                                 ctx.reply(
                                     'К сожалению Вам сейчас недоступно создание бота. ' +
-                                        'Отвяжите активный бот c помощью */help* и попробуйте снова',
+                                    'Отвяжите активный бот c помощью */help* и попробуйте снова',
                                     { parse_mode: 'Markdown' },
                                 );
                                 return '';
@@ -211,8 +211,8 @@ export default class MasterBot {
                     if (slaveBotLink) {
                         ctx.reply(
                             'Ваш бот для общения с преподавателем: ' +
-                                `*${slaveBotLink}*. ` +
-                                'Нажмите */start*, когда перейдете в этот бот',
+                            `*${slaveBotLink}*. ` +
+                            'Нажмите */start*, когда перейдете в этот бот',
                             { parse_mode: 'Markdown' },
                         ).catch((reason: string) =>
                             logger.fatal("bot.on(['text'] error: " + reason),
@@ -222,7 +222,7 @@ export default class MasterBot {
                     logger.info("bot.on(['text']: invalid token");
                     ctx.reply(
                         'Неверный токен. ' +
-                            'Для отображения помощи используйте */help*',
+                        'Для отображения помощи используйте */help*',
                         { parse_mode: 'Markdown' },
                     ).catch((reason: string) =>
                         logger.fatal("bot.on(['text'] error: " + reason),
@@ -232,7 +232,7 @@ export default class MasterBot {
                 logger.info("bot.on(['text']: wrong symbols count");
                 ctx.reply(
                     `Токен может содержать только ${masterBotTokenLength} символов. ` +
-                        'Для отображения помощи используйте */help*',
+                    'Для отображения помощи используйте */help*',
                     { parse_mode: 'Markdown' },
                 ).catch((reason: string) =>
                     logger.fatal("bot.on(['text'] error: " + reason),
